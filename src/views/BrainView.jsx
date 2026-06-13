@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
 import { loadBrain, saveBrain } from "../lib/storage";
 
-const NAVY = "#0D1B2A";
-const GOLD = "#C9A84C";
-const ACCENT = "#1A3A5C";
-const CREAM = "#FFF8E7";
+// ── Wall Street brand tokens ──────────────────────────────────────────────────
+const DARK   = "#06101D";
+const NAVY   = "#0D1825";
+const GOLD   = "#C4992A";
+const STEEL  = "#5C6E7E";
+const CREAM  = "#F5F1E8";
+const BORDER = "#DDD5C5";
+const TEXT   = "#1A2438";
+const MUTED  = "#6B7A8A";
 
 const MODEL_LETTERS = ["A", "B", "C", "D", "E"];
 
@@ -31,30 +36,34 @@ const EMPTY_BRAIN = {
   models: MODEL_LETTERS.map(emptyModel),
 };
 
-const inputCls = {
+// Shared input style
+const inputStyle = {
   width: "100%",
-  border: "1px solid #D8DCE2",
-  borderRadius: 6,
-  padding: "8px 12px",
+  background: "#FDFAF5",
+  border: `1px solid ${BORDER}`,
+  padding: "10px 14px",
   fontSize: 13,
-  color: NAVY,
+  color: TEXT,
   outline: "none",
   fontFamily: "inherit",
+  letterSpacing: 0.2,
+  transition: "border-color 0.15s",
 };
 
-const labelCls = {
+const labelStyle = {
   display: "block",
-  fontSize: 11,
+  fontSize: 9,
   fontWeight: 600,
   textTransform: "uppercase",
-  letterSpacing: 1,
-  color: ACCENT,
-  marginBottom: 5,
+  letterSpacing: 2,
+  color: STEEL,
+  marginBottom: 6,
 };
 
 export default function BrainView() {
-  const [brain, setBrain] = useState(EMPTY_BRAIN);
+  const [brain, setBrain]       = useState(EMPTY_BRAIN);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [focusField, setFocusField] = useState(null);
 
   useEffect(() => {
     const stored = loadBrain();
@@ -89,199 +98,293 @@ export default function BrainView() {
     brain.preferences.trim().length > 0 && brain.models.some((m) => m.name.trim().length > 0);
 
   const saveLabel =
-    saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : saveState === "error" ? "Save failed — try again" : "Save Advisor Brain";
+    saveState === "saving"  ? "Saving…" :
+    saveState === "saved"   ? "✓ Preferences Saved" :
+    saveState === "error"   ? "Save failed — try again" :
+    "Save Advisor Brain";
 
   return (
     <div>
-      {/* Section heading */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 className="font-serif" style={{ color: NAVY, fontSize: 26 }}>
-          The Advisor Brain
-        </h2>
-        <div style={{ height: 2, width: 56, background: GOLD, marginTop: 8 }} />
-      </div>
+      <PageHeader title="The Advisor Brain" />
 
-      <p style={{ fontSize: 13, color: "#4A5568", marginBottom: 28, maxWidth: 600 }}>
+      <p style={{ fontSize: 13, color: MUTED, marginBottom: 32, lineHeight: 1.8, maxWidth: 580 }}>
         This is the engine. Everything entered here becomes the logic behind every recommendation.
-        Set it up once, refine it as your thinking evolves.
+        Set it up once — refine it as your thinking evolves.
       </p>
 
-      {/* Advisor info */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <div>
-          <label style={labelCls}>Advisor name</label>
+      {/* ── Advisor Identity ───────────────────────────────────────────────── */}
+      <SectionLabel>Advisor Identity</SectionLabel>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
+        <Field label="Advisor Name" focusKey="name" focusField={focusField} setFocusField={setFocusField}>
           <input
-            style={inputCls}
+            style={{ ...inputStyle, borderColor: focusField === "name" ? GOLD : BORDER }}
             value={brain.advisorName}
             onChange={(e) => setBrain((b) => ({ ...b, advisorName: e.target.value }))}
+            onFocus={() => setFocusField("name")}
+            onBlur={() => setFocusField(null)}
             placeholder="Mathew Steward"
           />
-        </div>
-        <div>
-          <label style={labelCls}>Firm</label>
+        </Field>
+        <Field label="Firm" focusKey="firm" focusField={focusField} setFocusField={setFocusField}>
           <input
-            style={inputCls}
+            style={{ ...inputStyle, borderColor: focusField === "firm" ? GOLD : BORDER }}
             value={brain.firm}
             onChange={(e) => setBrain((b) => ({ ...b, firm: e.target.value }))}
+            onFocus={() => setFocusField("firm")}
+            onBlur={() => setFocusField(null)}
             placeholder="Stewardship Financial Group"
           />
-        </div>
+        </Field>
       </div>
 
-      {/* Preferences */}
-      <div style={{ marginBottom: 32 }}>
-        <label style={labelCls}>Preferences, biases & default plays</label>
-        <p style={{ fontSize: 12, color: "#6B7686", marginBottom: 8 }}>
-          Your "pool of likies" — fund families you favor, protection-first rules, when annuities
-          make sense, what you avoid, what drives your thinking.
-        </p>
-        <textarea
-          style={{ ...inputCls, minHeight: 140, resize: "vertical" }}
-          value={brain.preferences}
-          onChange={(e) => setBrain((b) => ({ ...b, preferences: e.target.value }))}
-          placeholder="I lead with protection before accumulation…"
-        />
+      {/* ── Preferences ───────────────────────────────────────────────────── */}
+      <SectionLabel>Preferences, Biases & Default Plays</SectionLabel>
+      <p style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.7 }}>
+        Your "pool of likies" — fund families you favor, protection-first rules, when annuities
+        make sense, what you avoid, what drives your thinking.
+      </p>
+      <textarea
+        style={{
+          ...inputStyle,
+          minHeight: 140,
+          resize: "vertical",
+          borderColor: focusField === "prefs" ? GOLD : BORDER,
+        }}
+        value={brain.preferences}
+        onChange={(e) => setBrain((b) => ({ ...b, preferences: e.target.value }))}
+        onFocus={() => setFocusField("prefs")}
+        onBlur={() => setFocusField(null)}
+        placeholder="I lead with protection before accumulation…"
+      />
+
+      {/* ── Model Portfolios ───────────────────────────────────────────────── */}
+      <div style={{ marginTop: 36, marginBottom: 12 }}>
+        <SectionLabel>Model Portfolios A–E</SectionLabel>
       </div>
 
-      {/* Model portfolios */}
-      <h3 className="font-serif" style={{ color: NAVY, fontSize: 18, marginBottom: 12 }}>
-        Model Portfolios A–E
-      </h3>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 32 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 36 }}>
         {brain.models.map((m, i) => (
-          <div
-            key={m.letter}
-            style={{
-              border: `1px solid ${m.name ? GOLD : "#E2E6EB"}`,
-              borderRadius: 8,
-              padding: "16px",
-              background: m.name ? CREAM : "white",
-            }}
-          >
-            {/* Letter badge + name */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  background: NAVY,
-                  color: GOLD,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}
-              >
-                {m.letter}
-              </div>
-              <input
-                style={{
-                  flex: 1,
-                  borderBottom: "1px solid #D8DCE2",
-                  borderTop: "none",
-                  borderLeft: "none",
-                  borderRight: "none",
-                  background: "transparent",
-                  padding: "4px 4px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: NAVY,
-                  outline: "none",
-                  fontFamily: "inherit",
-                }}
-                value={m.name}
-                onChange={(e) => updateModel(i, "name", e.target.value)}
-                placeholder={`Model ${m.letter} name (e.g., Balanced Growth)`}
-              />
-            </div>
-
-            {/* Three fields */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
-              }}
-            >
-              <div>
-                <label style={{ ...labelCls, fontSize: 10 }}>Risk profile</label>
-                <input
-                  style={inputCls}
-                  value={m.riskProfile}
-                  onChange={(e) => updateModel(i, "riskProfile", e.target.value)}
-                  placeholder="Moderate, 7+ yr horizon"
-                />
-              </div>
-              <div>
-                <label style={{ ...labelCls, fontSize: 10 }}>Target allocation</label>
-                <input
-                  style={inputCls}
-                  value={m.allocation}
-                  onChange={(e) => updateModel(i, "allocation", e.target.value)}
-                  placeholder="50% equity, 30% bonds…"
-                />
-              </div>
-              <div>
-                <label style={{ ...labelCls, fontSize: 10 }}>When to use</label>
-                <input
-                  style={inputCls}
-                  value={m.whenToUse}
-                  onChange={(e) => updateModel(i, "whenToUse", e.target.value)}
-                  placeholder="Mid-career accumulators…"
-                />
-              </div>
-            </div>
-          </div>
+          <ModelCard key={m.letter} m={m} i={i} onUpdate={updateModel} />
         ))}
       </div>
 
-      {/* Actions */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-        <button
-          onClick={handleSave}
-          style={{
-            padding: "10px 24px",
-            borderRadius: 6,
-            border: "none",
-            background: saveState === "error" ? "#C0392B" : NAVY,
-            color: GOLD,
-            fontWeight: 600,
-            fontSize: 13,
-            letterSpacing: 0.4,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
+      {/* ── Actions ───────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, borderTop: `1px solid ${BORDER}`, paddingTop: 24 }}>
+        <ActionBtn onClick={handleSave} primary error={saveState === "error"}>
           {saveLabel}
-        </button>
+        </ActionBtn>
 
-        <button
-          onClick={handleLoadSample}
-          style={{
-            padding: "10px 20px",
-            borderRadius: 6,
-            border: `1px solid ${GOLD}`,
-            background: "transparent",
-            color: ACCENT,
-            fontSize: 13,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          Load sample brain (demo)
-        </button>
+        <ActionBtn onClick={handleLoadSample}>
+          Load sample (demo)
+        </ActionBtn>
 
         {brainComplete && (
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#1A7A4A" }}>
-            ● Brain active — engine ready
+          <span style={{
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: 1.5,
+            textTransform: "uppercase",
+            color: "#3A7A5A",
+          }}>
+            ● Engine active
           </span>
         )}
       </div>
     </div>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function ModelCard({ m, i, onUpdate }) {
+  const [expanded, setExpanded] = useState(true);
+  const hasContent = m.name.trim().length > 0;
+
+  return (
+    <div style={{
+      border: `1px solid ${hasContent ? BORDER : "#E8E4DC"}`,
+      borderLeft: `3px solid ${hasContent ? GOLD : "#D5CFCA"}`,
+      background: hasContent ? "#FDFAF5" : "#FAF8F4",
+      transition: "all 0.15s",
+    }}>
+      {/* Header row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "14px 20px",
+          cursor: "pointer",
+        }}
+        onClick={() => setExpanded((e) => !e)}
+      >
+        {/* Letter badge */}
+        <div style={{
+          width: 36,
+          height: 36,
+          background: hasContent ? DARK : "#E8E4DC",
+          border: hasContent ? `1px solid #1A2B3C` : "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <span style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 18,
+            fontWeight: 700,
+            color: hasContent ? GOLD : STEEL,
+            lineHeight: 1,
+          }}>
+            {m.letter}
+          </span>
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: hasContent ? TEXT : MUTED,
+            fontFamily: hasContent ? "'Playfair Display', serif" : "inherit",
+          }}>
+            {m.name || `Model ${m.letter} — not configured`}
+          </div>
+          {hasContent && m.riskProfile && (
+            <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{m.riskProfile}</div>
+          )}
+        </div>
+
+        <div style={{ fontSize: 14, color: STEEL, flexShrink: 0 }}>
+          {expanded ? "▴" : "▾"}
+        </div>
+      </div>
+
+      {/* Expanded form */}
+      {expanded && (
+        <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Name */}
+          <div>
+            <div style={labelStyle}>Portfolio Name</div>
+            <input
+              style={{
+                ...inputStyleNoRadius,
+                borderBottom: "1px solid #D8D4CC",
+                borderTop: "none",
+                borderLeft: "none",
+                borderRight: "none",
+                background: "transparent",
+                padding: "6px 4px",
+                fontWeight: 600,
+                color: TEXT,
+              }}
+              value={m.name}
+              onChange={(e) => onUpdate(i, "name", e.target.value)}
+              placeholder={`Model ${m.letter} name (e.g., Balanced Growth)`}
+            />
+          </div>
+
+          {/* Three fields */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14 }}>
+            {[
+              ["Risk Profile",        "riskProfile", "Moderate, 7+ yr horizon"],
+              ["Target Allocation",   "allocation",  "50% equity, 30% bonds…"],
+              ["When to Use",        "whenToUse",   "Mid-career accumulators…"],
+            ].map(([label, field, ph]) => (
+              <div key={field}>
+                <div style={labelStyle}>{label}</div>
+                <input
+                  style={{ ...inputStyleNoRadius, border: `1px solid ${BORDER}`, background: "#FAF8F4" }}
+                  value={m[field]}
+                  onChange={(e) => onUpdate(i, field, e.target.value)}
+                  placeholder={ph}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const inputStyleNoRadius = {
+  width: "100%",
+  padding: "8px 10px",
+  fontSize: 12,
+  color: TEXT,
+  outline: "none",
+  fontFamily: "inherit",
+  letterSpacing: 0.2,
+};
+
+function PageHeader({ title }) {
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 3, color: STEEL, marginBottom: 8, fontWeight: 500 }}>
+        F.A.S.T. · Financial Advisory Steward Technology
+      </div>
+      <h2 style={{
+        fontFamily: "'Playfair Display', serif",
+        color: TEXT,
+        fontSize: 28,
+        fontWeight: 700,
+        margin: 0,
+        letterSpacing: 0.3,
+      }}>
+        {title}
+      </h2>
+      <div style={{ height: 2, width: 40, background: GOLD, marginTop: 12, opacity: 0.7 }} />
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      fontSize: 9,
+      textTransform: "uppercase",
+      letterSpacing: 2.5,
+      color: STEEL,
+      fontWeight: 600,
+      marginBottom: 12,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <div style={labelStyle}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function ActionBtn({ onClick, children, primary, error, disabled }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: "10px 22px",
+        border: `1px solid ${error ? "#8B3A3A" : primary ? GOLD : "#C5BDB0"}`,
+        background: primary && hover ? GOLD : "transparent",
+        color: error ? "#8B3A3A" : primary ? (hover ? DARK : GOLD) : "#4A5A6A",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        cursor: disabled ? "wait" : "pointer",
+        fontFamily: "inherit",
+        transition: "all 0.15s",
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {children}
+    </button>
   );
 }

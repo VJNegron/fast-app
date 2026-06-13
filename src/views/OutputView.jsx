@@ -2,28 +2,54 @@ import { useState } from "react";
 import { loadBrain } from "../lib/storage";
 import { exportRecommendationPDF } from "../lib/pdfExport";
 
-const NAVY = "#0D1B2A";
-const GOLD = "#C9A84C";
-const ACCENT = "#1A3A5C";
-const CREAM = "#FFF8E7";
-const GRAY = "#F5F5F5";
+// ── Wall Street brand tokens ──────────────────────────────────────────────────
+const DARK   = "#06101D";
+const NAVY   = "#0D1825";
+const GOLD   = "#C4992A";
+const STEEL  = "#5C6E7E";
+const CREAM  = "#F5F1E8";
+const BORDER = "#DDD5C5";
+const TEXT   = "#1A2438";
+const MUTED  = "#6B7A8A";
+
+const S = {
+  sectionHead: {
+    fontFamily: "'Playfair Display', serif",
+    color: TEXT,
+    fontSize: 13,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    marginBottom: 14,
+  },
+  rule: {
+    height: 1,
+    background: BORDER,
+    border: "none",
+    margin: "24px 0",
+  },
+  goldRule: {
+    height: 1,
+    background: GOLD,
+    border: "none",
+    width: 40,
+    margin: "10px 0 20px",
+    opacity: 0.6,
+  },
+};
 
 export default function OutputView({ result, onNewAnalysis }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied]           = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   if (!result) {
     return (
       <div>
-        <div style={{ marginBottom: 20 }}>
-          <h2 className="font-serif" style={{ color: NAVY, fontSize: 26 }}>
-            Recommendation
-          </h2>
-          <div style={{ height: 2, width: 56, background: GOLD, marginTop: 8 }} />
-        </div>
-        <p style={{ fontSize: 13, color: "#6B7686" }}>
-          No analysis yet. Run a client document through{" "}
-          <strong>New Client Analysis</strong> and the recommendation appears here.
+        <PageHeader title="Recommendation" />
+        <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.7 }}>
+          No analysis on record. Run a client document through{" "}
+          <strong style={{ color: TEXT }}>New Client Analysis</strong> and the
+          recommendation will appear here.
         </p>
       </div>
     );
@@ -33,32 +59,33 @@ export default function OutputView({ result, onNewAnalysis }) {
 
   function handleCopy() {
     const out = [
-      "F.A.S.T. RECOMMENDATION",
+      "F.A.S.T. — FINANCIAL ADVISORY STEWARD TECHNOLOGY",
       `Generated: ${new Date().toLocaleString()}`,
+      "─".repeat(60),
+      `MODEL MATCH: ${r.modelMatch} — ${r.modelName}`,
+      `CONFIDENCE:  ${r.confidence}`,
       "",
-      `MODEL MATCH: ${r.modelMatch} — ${r.modelName}  (Confidence: ${r.confidence})`,
+      "CLIENT PROFILE",
+      `Client:           ${r.clientSnapshot?.name}`,
+      `Estimated Assets: ${r.clientSnapshot?.estimatedAssets}`,
+      `Risk Indicators:  ${r.clientSnapshot?.riskIndicators}`,
+      `Holdings:         ${r.clientSnapshot?.keyHoldings}`,
       "",
-      `CLIENT: ${r.clientSnapshot?.name}`,
-      `ESTIMATED ASSETS: ${r.clientSnapshot?.estimatedAssets}`,
-      `RISK INDICATORS: ${r.clientSnapshot?.riskIndicators}`,
-      `CURRENT HOLDINGS: ${r.clientSnapshot?.keyHoldings}`,
-      "",
-      "WHY THIS MODEL — YOUR LOGIC:",
+      "RATIONALE",
       r.rationale,
       "",
-      "ADJUSTMENTS FOR THIS CLIENT:",
-      ...(r.adjustments || []).map((a) => `- ${a}`),
+      "ADJUSTMENTS",
+      ...(r.adjustments || []).map((a) => `  · ${a}`),
       "",
-      "MEETING TALKING POINTS:",
-      ...(r.talkingPoints || []).map((t, i) => `${i + 1}. ${t}`),
+      "MEETING TALKING POINTS",
+      ...(r.talkingPoints || []).map((t, i) => `  ${i + 1}. ${t}`),
       "",
-      "FLAGS — ADDRESS FIRST:",
-      ...(r.flags?.length ? r.flags.map((f) => `! ${f}`) : ["None"]),
+      "FLAGS — ADDRESS FIRST",
+      ...(r.flags?.length ? r.flags.map((f) => `  ! ${f}`) : ["  None"]),
       "",
-      "─────────────────────────────────────────────────────────────────",
-      "F.A.S.T. — Financial Advisory Steward Technology",
+      "─".repeat(60),
+      "Decision-support draft. Advisor review required before client use.",
       "Built by Vicron A.I. Consulting — Bridging the Gap",
-      "Decision-support draft. Advisor review required before any client use.",
     ].join("\n");
 
     navigator.clipboard.writeText(out).then(() => {
@@ -81,282 +108,331 @@ export default function OutputView({ result, onNewAnalysis }) {
 
   return (
     <div>
-      {/* Section heading */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 className="font-serif" style={{ color: NAVY, fontSize: 26 }}>
-          Recommendation
-        </h2>
-        <div style={{ height: 2, width: 56, background: GOLD, marginTop: 8 }} />
-      </div>
+      <PageHeader title="Recommendation" />
 
-      {/* ── THE SEAL ── */}
-      <div
-        style={{
-          background: NAVY,
-          borderRadius: 12,
-          padding: "36px 24px",
-          textAlign: "center",
-          marginBottom: 24,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: 3,
-            color: "#8A93A3",
-            marginBottom: 16,
-          }}
-        >
-          Model Match
-        </div>
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            margin: "0 auto",
-            borderRadius: "50%",
-            border: `3px solid ${GOLD}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "'Playfair Display', serif",
-            fontSize: 48,
-            fontWeight: 700,
-            color: GOLD,
-          }}
-        >
+      {/* ── THE SEAL ─────────────────────────────────────────────────────── */}
+      <div style={{
+        background: DARK,
+        border: `1px solid #1A2B3C`,
+        padding: "40px 32px",
+        marginBottom: 32,
+        display: "flex",
+        alignItems: "center",
+        gap: 40,
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Background watermark */}
+        <div style={{
+          position: "absolute",
+          right: 24,
+          top: "50%",
+          transform: "translateY(-50%)",
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 120,
+          fontWeight: 700,
+          color: "rgba(196,153,42,0.04)",
+          letterSpacing: -4,
+          userSelect: "none",
+          lineHeight: 1,
+        }}>
           {r.modelMatch}
         </div>
-        <div
-          className="font-serif"
-          style={{ color: "white", fontSize: 22, marginTop: 16 }}
-        >
-          {r.modelName}
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            marginTop: 8,
-            textTransform: "uppercase",
-            letterSpacing: 2,
+
+        {/* Seal */}
+        <div style={{
+          width: 88,
+          height: 88,
+          flexShrink: 0,
+          border: `2px solid ${GOLD}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+        }}>
+          {/* Inner border */}
+          <div style={{
+            position: "absolute",
+            inset: 4,
+            border: `1px solid rgba(196,153,42,0.3)`,
+          }} />
+          <span style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 44,
+            fontWeight: 700,
             color: GOLD,
-          }}
-        >
-          Confidence: {r.confidence}
+            lineHeight: 1,
+            position: "relative",
+          }}>
+            {r.modelMatch}
+          </span>
+        </div>
+
+        {/* Model info */}
+        <div style={{ position: "relative" }}>
+          <div style={{
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: 3,
+            color: STEEL,
+            marginBottom: 8,
+            fontWeight: 500,
+          }}>
+            Model Match
+          </div>
+          <div style={{
+            fontFamily: "'Playfair Display', serif",
+            color: "#E8E2D9",
+            fontSize: 22,
+            fontWeight: 600,
+            marginBottom: 6,
+          }}>
+            {r.modelName}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: STEEL,
+            }}>
+              Confidence
+            </span>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: 1,
+              color: r.confidence === "High" ? "#4A8C6A" : r.confidence === "Low" ? "#8B3A3A" : GOLD,
+            }}>
+              {r.confidence}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── CLIENT SNAPSHOT ── */}
-      <div
-        style={{
-          border: "1px solid #E2E6EB",
-          borderRadius: 8,
-          padding: "20px",
-          marginBottom: 20,
-        }}
-      >
-        <h3 className="font-serif" style={{ color: NAVY, fontSize: 17, marginBottom: 14 }}>
-          Client Snapshot
-        </h3>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "10px 24px",
-            fontSize: 13,
-            color: "#374151",
-          }}
-        >
-          <div>
-            <strong>Client:</strong> {r.clientSnapshot?.name}
-          </div>
-          <div>
-            <strong>Estimated assets:</strong> {r.clientSnapshot?.estimatedAssets}
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <strong>Risk indicators:</strong> {r.clientSnapshot?.riskIndicators}
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <strong>Current holdings:</strong> {r.clientSnapshot?.keyHoldings}
-          </div>
+      {/* ── CLIENT PROFILE ────────────────────────────────────────────────── */}
+      <Section title="Client Profile">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 32px" }}>
+          {[
+            ["Client",           r.clientSnapshot?.name],
+            ["Estimated Assets", r.clientSnapshot?.estimatedAssets],
+            ["Risk Indicators",  r.clientSnapshot?.riskIndicators],
+            ["Holdings Summary", r.clientSnapshot?.keyHoldings],
+          ].map(([label, val]) => (
+            <div key={label} style={label.length > 12 ? { gridColumn: "1 / -1" } : {}}>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 2, color: STEEL, marginBottom: 3, fontWeight: 500 }}>
+                {label}
+              </div>
+              <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{val || "—"}</div>
+            </div>
+          ))}
         </div>
-      </div>
+      </Section>
 
-      {/* ── RATIONALE ── */}
-      <div
-        style={{
-          borderLeft: `4px solid ${GOLD}`,
-          paddingLeft: 16,
+      <hr style={S.rule} />
+
+      {/* ── RATIONALE ─────────────────────────────────────────────────────── */}
+      <Section title="Rationale">
+        <div style={{
+          borderLeft: `2px solid ${GOLD}`,
+          paddingLeft: 20,
           paddingTop: 4,
           paddingBottom: 4,
-          marginBottom: 20,
-        }}
-      >
-        <h3 className="font-serif" style={{ color: NAVY, fontSize: 17, marginBottom: 8 }}>
-          Why this model — your logic
-        </h3>
-        <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.7 }}>{r.rationale}</p>
-      </div>
+        }}>
+          <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.8, margin: 0, fontStyle: "italic" }}>
+            {r.rationale}
+          </p>
+        </div>
+      </Section>
 
-      {/* ── ADJUSTMENTS ── */}
+      <hr style={S.rule} />
+
+      {/* ── ADJUSTMENTS ───────────────────────────────────────────────────── */}
       {r.adjustments?.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 className="font-serif" style={{ color: NAVY, fontSize: 17, marginBottom: 10 }}>
-            Adjustments for this client
-          </h3>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {r.adjustments.map((a, i) => (
-              <li
-                key={i}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  fontSize: 13,
-                  color: "#374151",
-                  marginBottom: 8,
-                  lineHeight: 1.6,
-                }}
-              >
-                <span style={{ color: GOLD, flexShrink: 0, marginTop: 2 }}>◆</span>
-                {a}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <>
+          <Section title="Client-Specific Adjustments">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {r.adjustments.map((a, i) => (
+                <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                  <span style={{
+                    color: GOLD,
+                    fontSize: 10,
+                    marginTop: 4,
+                    flexShrink: 0,
+                    letterSpacing: 1,
+                  }}>◆</span>
+                  <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.7 }}>{a}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+          <hr style={S.rule} />
+        </>
       )}
 
-      {/* ── TALKING POINTS ── */}
+      {/* ── TALKING POINTS ────────────────────────────────────────────────── */}
       {r.talkingPoints?.length > 0 && (
-        <div
-          style={{
-            background: GRAY,
-            borderRadius: 8,
-            padding: "20px",
-            marginBottom: 20,
-          }}
-        >
-          <h3 className="font-serif" style={{ color: NAVY, fontSize: 17, marginBottom: 10 }}>
-            Meeting talking points
-          </h3>
-          <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {r.talkingPoints.map((t, i) => (
-              <li
-                key={i}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  fontSize: 13,
-                  color: "#374151",
-                  marginBottom: 8,
-                  lineHeight: 1.6,
-                }}
-              >
-                <span style={{ color: ACCENT, fontWeight: 600, flexShrink: 0, width: 18 }}>
-                  {i + 1}.
-                </span>
-                {t}
-              </li>
-            ))}
-          </ol>
-        </div>
+        <>
+          <Section title="Meeting Talking Points">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {r.talkingPoints.map((t, i) => (
+                <div key={i} style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <span style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: STEEL,
+                    flexShrink: 0,
+                    width: 18,
+                    fontVariantNumeric: "tabular-nums",
+                    marginTop: 2,
+                  }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.7 }}>{t}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+          <hr style={S.rule} />
+        </>
       )}
 
-      {/* ── FLAGS ── */}
+      {/* ── FLAGS ─────────────────────────────────────────────────────────── */}
       {r.flags?.length > 0 && (
-        <div
-          style={{
-            border: `1px solid ${GOLD}`,
-            borderRadius: 8,
-            padding: "20px",
-            marginBottom: 24,
-            background: CREAM,
-          }}
-        >
-          <h3 className="font-serif" style={{ color: NAVY, fontSize: 17, marginBottom: 10 }}>
-            ⚑ Address first — your rules
-          </h3>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {r.flags.map((f, i) => (
-              <li
-                key={i}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  fontSize: 13,
-                  color: "#374151",
-                  marginBottom: 8,
-                  lineHeight: 1.6,
-                }}
-              >
-                <span style={{ color: "#C0392B", flexShrink: 0, marginTop: 2 }}>●</span>
-                {f}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <>
+          <div style={{
+            background: "#FFF8F0",
+            border: `1px solid rgba(196,153,42,0.3)`,
+            borderLeft: `3px solid ${GOLD}`,
+            padding: "20px 24px",
+            marginBottom: 8,
+          }}>
+            <div style={{
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+              color: "#8B6914",
+              fontWeight: 600,
+              marginBottom: 14,
+            }}>
+              ⚑ Address First — Advisor Rules
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {r.flags.map((f, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{ color: "#8B4513", fontSize: 10, flexShrink: 0, marginTop: 3 }}>●</span>
+                  <span style={{ fontSize: 13, color: "#4A3020", lineHeight: 1.7 }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <hr style={S.rule} />
+        </>
       )}
 
-      {/* ── ACTIONS ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-        <button
-          onClick={handleCopy}
-          style={{
-            padding: "10px 22px",
-            borderRadius: 6,
-            border: "none",
-            background: NAVY,
-            color: GOLD,
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {copied ? "✓ Copied!" : "Copy to clipboard"}
-        </button>
-
-        <button
-          onClick={handleExportPdf}
-          disabled={exportingPdf}
-          style={{
-            padding: "10px 22px",
-            borderRadius: 6,
-            border: `1px solid ${NAVY}`,
-            background: "white",
-            color: NAVY,
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: exportingPdf ? "wait" : "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          {exportingPdf ? "Generating PDF…" : "Export PDF"}
-        </button>
-
-        <button
-          onClick={onNewAnalysis}
-          style={{
-            padding: "10px 20px",
-            borderRadius: 6,
-            border: `1px solid ${ACCENT}`,
-            background: "transparent",
-            color: ACCENT,
-            fontSize: 13,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          New analysis
-        </button>
+      {/* ── ACTIONS ───────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
+        <ActionBtn onClick={handleCopy} primary>
+          {copied ? "✓ Copied" : "Copy to Clipboard"}
+        </ActionBtn>
+        <ActionBtn onClick={handleExportPdf} disabled={exportingPdf}>
+          {exportingPdf ? "Generating…" : "Export PDF"}
+        </ActionBtn>
+        <ActionBtn onClick={onNewAnalysis}>
+          New Analysis
+        </ActionBtn>
       </div>
 
       {/* Disclaimer */}
-      <p style={{ fontSize: 11, color: "#9AA3AF", lineHeight: 1.6 }}>
-        F.A.S.T. output is a decision-support draft built from your stored preferences. Review,
-        verify extracted data, and apply professional judgment before any client use. Not a
-        substitute for advisor analysis or regulatory compliance.
+      <p style={{
+        fontSize: 10,
+        color: "#B0A898",
+        lineHeight: 1.8,
+        borderTop: `1px solid ${BORDER}`,
+        paddingTop: 16,
+        letterSpacing: 0.3,
+      }}>
+        F.A.S.T. output is a decision-support draft generated from stored advisor preferences.
+        Verify all extracted data and apply professional judgment before any client use.
+        Not a substitute for licensed advisor analysis or regulatory compliance review.
       </p>
     </div>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+function PageHeader({ title }) {
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <div style={{
+        fontSize: 9,
+        textTransform: "uppercase",
+        letterSpacing: 3,
+        color: STEEL,
+        marginBottom: 8,
+        fontWeight: 500,
+      }}>
+        F.A.S.T. · Financial Advisory Steward Technology
+      </div>
+      <h2 style={{
+        fontFamily: "'Playfair Display', serif",
+        color: "#1A2438",
+        fontSize: 28,
+        fontWeight: 700,
+        margin: 0,
+        letterSpacing: 0.3,
+      }}>
+        {title}
+      </h2>
+      <div style={{ height: 2, width: 40, background: GOLD, marginTop: 12, opacity: 0.7 }} />
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{
+        fontSize: 9,
+        textTransform: "uppercase",
+        letterSpacing: 2.5,
+        color: STEEL,
+        fontWeight: 600,
+        marginBottom: 14,
+      }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ActionBtn({ onClick, children, primary, disabled }) {
+  const [hover, setHover] = useState(false);
+  const base = {
+    padding: "10px 22px",
+    border: `1px solid ${primary ? "#C4992A" : "#C5BDB0"}`,
+    background: primary && hover ? "#C4992A" : "transparent",
+    color: primary ? (hover ? "#06101D" : "#C4992A") : "#4A5A6A",
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    cursor: disabled ? "wait" : "pointer",
+    fontFamily: "inherit",
+    transition: "all 0.15s",
+    opacity: disabled ? 0.5 : 1,
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={base}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {children}
+    </button>
   );
 }
