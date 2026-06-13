@@ -5,25 +5,50 @@ const NAVY = "#0D1B2A";
 const GOLD = "#C9A84C";
 const ACCENT = "#1A3A5C";
 
+const fieldStyle = {
+  width: "100%",
+  border: "1px solid #D8DCE2",
+  borderRadius: 6,
+  padding: "10px 12px",
+  fontSize: 14,
+  color: NAVY,
+  outline: "none",
+  marginBottom: 16,
+  fontFamily: "inherit",
+};
+
+const labelStyle = {
+  display: "block",
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  color: ACCENT,
+  marginBottom: 6,
+};
+
 export default function Login({ onLogin }) {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!password) return;
+    if (!username || !password) return;
     setLoading(true);
     setError(null);
     try {
-      await login(password);
+      await login(username, password);
       onLogin();
     } catch (err) {
-      setError(err.message || "Incorrect password.");
+      setError(err.message || "Incorrect username or password.");
     } finally {
       setLoading(false);
     }
   }
+
+  const canSubmit = username.trim() && password && !loading;
 
   return (
     <div
@@ -70,46 +95,34 @@ export default function Login({ onLogin }) {
           boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
         }}
       >
-        <h2
-          className="font-serif"
-          style={{ color: NAVY, fontSize: 20, marginBottom: 6 }}
-        >
+        <h2 className="font-serif" style={{ color: NAVY, fontSize: 20, marginBottom: 6 }}>
           Advisor Access
         </h2>
         <p style={{ color: "#6B7686", fontSize: 13, marginBottom: 28 }}>
-          Enter your password to access the engine.
+          Sign in to access the engine.
         </p>
 
-        <label
-          style={{
-            display: "block",
-            fontSize: 11,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            color: ACCENT,
-            marginBottom: 6,
-          }}
-        >
-          Password
-        </label>
+        {/* Username */}
+        <label style={labelStyle}>Username</label>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="advisor"
+          autoFocus
+          autoComplete="username"
+          style={{ ...fieldStyle, borderColor: error ? "#C0392B" : "#D8DCE2" }}
+        />
+
+        {/* Password */}
+        <label style={labelStyle}>Password</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
-          autoFocus
-          style={{
-            width: "100%",
-            border: `1px solid ${error ? "#C0392B" : "#D8DCE2"}`,
-            borderRadius: 6,
-            padding: "10px 12px",
-            fontSize: 14,
-            color: NAVY,
-            outline: "none",
-            marginBottom: 8,
-            fontFamily: "inherit",
-          }}
+          autoComplete="current-password"
+          style={{ ...fieldStyle, borderColor: error ? "#C0392B" : "#D8DCE2", marginBottom: 8 }}
         />
 
         {error && (
@@ -130,10 +143,10 @@ export default function Login({ onLogin }) {
 
         <button
           type="submit"
-          disabled={loading || !password}
+          disabled={!canSubmit}
           style={{
             width: "100%",
-            background: loading || !password ? "#9AA3AF" : NAVY,
+            background: !canSubmit ? "#9AA3AF" : NAVY,
             color: GOLD,
             border: "none",
             borderRadius: 6,
@@ -141,12 +154,12 @@ export default function Login({ onLogin }) {
             fontSize: 14,
             fontWeight: 600,
             letterSpacing: 0.5,
-            cursor: loading || !password ? "not-allowed" : "pointer",
+            cursor: !canSubmit ? "not-allowed" : "pointer",
             marginTop: 8,
             fontFamily: "inherit",
           }}
         >
-          {loading ? "Signing in..." : "Sign In"}
+          {loading ? "Signing in…" : "Sign In"}
         </button>
       </form>
 

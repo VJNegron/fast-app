@@ -14,6 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
+const FAST_USERNAME = process.env.FAST_USERNAME;
 const FAST_PASSWORD = process.env.FAST_PASSWORD;
 const JWT_SECRET = process.env.JWT_SECRET;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -60,10 +61,11 @@ function requireAuth(req, res, next) {
 
 // Login
 app.post("/api/auth/login", (req, res) => {
-  const { password } = req.body || {};
-  if (!password || password !== FAST_PASSWORD) {
+  const { username, password } = req.body || {};
+  const usernameMatch = !FAST_USERNAME || username === FAST_USERNAME;
+  if (!password || password !== FAST_PASSWORD || !usernameMatch) {
     // Consistent response time to prevent timing attacks
-    return setTimeout(() => res.status(401).json({ error: "Incorrect password." }), 300);
+    return setTimeout(() => res.status(401).json({ error: "Incorrect username or password." }), 300);
   }
   const token = jwt.sign({ role: "advisor" }, JWT_SECRET, { expiresIn: "7d" });
   res.json({ token });
