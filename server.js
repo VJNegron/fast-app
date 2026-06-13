@@ -5,6 +5,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import Anthropic from "@anthropic-ai/sdk";
 import { fileURLToPath } from "url";
@@ -57,10 +58,21 @@ function requireAuth(req, res, next) {
   }
 }
 
+// ── Rate limiting ────────────────────────────────────────────────────────────
+
+// Max 10 login attempts per IP per 15 minutes — blocks brute-force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Try again in 15 minutes." },
+});
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 // Login
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const usernameMatch = !FAST_USERNAME || username === FAST_USERNAME;
   if (!password || password !== FAST_PASSWORD || !usernameMatch) {
