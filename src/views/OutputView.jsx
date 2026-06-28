@@ -39,7 +39,7 @@ const S = {
 };
 
 export default function OutputView({ result, onNewAnalysis }) {
-  const [copied, setCopied]           = useState(false);
+  const [copied, setCopied]             = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   if (!result) {
@@ -56,9 +56,11 @@ export default function OutputView({ result, onNewAnalysis }) {
   }
 
   const r = result;
+  const annuity = r.annuityRecommendation;
+  const hasAnnuity = annuity?.suitable === true;
 
   function handleCopy() {
-    const out = [
+    const lines = [
       "F.A.S.T. — FINANCIAL ADVISORY STEWARD TECHNOLOGY",
       `Generated: ${new Date().toLocaleString()}`,
       "─".repeat(60),
@@ -73,6 +75,23 @@ export default function OutputView({ result, onNewAnalysis }) {
       "",
       "RATIONALE",
       r.rationale,
+    ];
+
+    if (hasAnnuity) {
+      lines.push(
+        "",
+        "ANNUITY LAYER — " + (annuity.product || "NYL IndexFlex"),
+        annuity.rationale || "",
+        `Recommended Strategy: ${annuity.recommendedStrategy || "—"}`,
+        `Current Rate:         ${annuity.currentRate || "—"}`,
+        `Suggested Allocation: ${annuity.suggestedAllocation || "—"}`,
+        "",
+        "ANNUITY TALKING POINTS",
+        ...(annuity.talkingPoints || []).map((t, i) => `  ${i + 1}. ${t}`)
+      );
+    }
+
+    lines.push(
       "",
       "ADJUSTMENTS",
       ...(r.adjustments || []).map((a) => `  · ${a}`),
@@ -86,8 +105,9 @@ export default function OutputView({ result, onNewAnalysis }) {
       "─".repeat(60),
       "Decision-support draft. Advisor review required before client use.",
       "Built by Vicron A.I. Consulting — Bridging the Gap",
-    ].join("\n");
+    );
 
+    const out = lines.join("\n");
     navigator.clipboard.writeText(out).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -150,12 +170,7 @@ export default function OutputView({ result, onNewAnalysis }) {
           justifyContent: "center",
           position: "relative",
         }}>
-          {/* Inner border */}
-          <div style={{
-            position: "absolute",
-            inset: 4,
-            border: `1px solid rgba(196,153,42,0.3)`,
-          }} />
+          <div style={{ position: "absolute", inset: 4, border: `1px solid rgba(196,153,42,0.3)` }} />
           <span style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: 44,
@@ -170,34 +185,14 @@ export default function OutputView({ result, onNewAnalysis }) {
 
         {/* Model info */}
         <div style={{ position: "relative" }}>
-          <div style={{
-            fontSize: 9,
-            textTransform: "uppercase",
-            letterSpacing: 3,
-            color: STEEL,
-            marginBottom: 8,
-            fontWeight: 500,
-          }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 3, color: STEEL, marginBottom: 8, fontWeight: 500 }}>
             Model Match
           </div>
-          <div style={{
-            fontFamily: "'Playfair Display', serif",
-            color: "#E8E2D9",
-            fontSize: 22,
-            fontWeight: 600,
-            marginBottom: 6,
-          }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", color: "#E8E2D9", fontSize: 22, fontWeight: 600, marginBottom: 6 }}>
             {r.modelName}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              color: STEEL,
-            }}>
-              Confidence
-            </span>
+            <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: STEEL }}>Confidence</span>
             <span style={{
               fontSize: 10,
               fontWeight: 600,
@@ -207,6 +202,23 @@ export default function OutputView({ result, onNewAnalysis }) {
               {r.confidence}
             </span>
           </div>
+          {/* Annuity badge */}
+          {hasAnnuity && (
+            <div style={{
+              marginTop: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(196,153,42,0.12)",
+              border: `1px solid rgba(196,153,42,0.35)`,
+              padding: "4px 12px",
+            }}>
+              <span style={{ fontSize: 8, color: GOLD }}>◆</span>
+              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: GOLD }}>
+                + Annuity Layer
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -220,9 +232,7 @@ export default function OutputView({ result, onNewAnalysis }) {
             ["Holdings Summary", r.clientSnapshot?.keyHoldings],
           ].map(([label, val]) => (
             <div key={label} style={label.length > 12 ? { gridColumn: "1 / -1" } : {}}>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 2, color: STEEL, marginBottom: 3, fontWeight: 500 }}>
-                {label}
-              </div>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 2, color: STEEL, marginBottom: 3, fontWeight: 500 }}>{label}</div>
               <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.6 }}>{val || "—"}</div>
             </div>
           ))}
@@ -233,12 +243,7 @@ export default function OutputView({ result, onNewAnalysis }) {
 
       {/* ── RATIONALE ─────────────────────────────────────────────────────── */}
       <Section title="Rationale">
-        <div style={{
-          borderLeft: `2px solid ${GOLD}`,
-          paddingLeft: 20,
-          paddingTop: 4,
-          paddingBottom: 4,
-        }}>
+        <div style={{ borderLeft: `2px solid ${GOLD}`, paddingLeft: 20, paddingTop: 4, paddingBottom: 4 }}>
           <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.8, margin: 0, fontStyle: "italic" }}>
             {r.rationale}
           </p>
@@ -247,6 +252,14 @@ export default function OutputView({ result, onNewAnalysis }) {
 
       <hr style={S.rule} />
 
+      {/* ── ANNUITY LAYER ─────────────────────────────────────────────────── */}
+      {hasAnnuity && (
+        <>
+          <AnnuitySection annuity={annuity} />
+          <hr style={S.rule} />
+        </>
+      )}
+
       {/* ── ADJUSTMENTS ───────────────────────────────────────────────────── */}
       {r.adjustments?.length > 0 && (
         <>
@@ -254,13 +267,7 @@ export default function OutputView({ result, onNewAnalysis }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {r.adjustments.map((a, i) => (
                 <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <span style={{
-                    color: GOLD,
-                    fontSize: 10,
-                    marginTop: 4,
-                    flexShrink: 0,
-                    letterSpacing: 1,
-                  }}>◆</span>
+                  <span style={{ color: GOLD, fontSize: 10, marginTop: 4, flexShrink: 0, letterSpacing: 1 }}>◆</span>
                   <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.7 }}>{a}</span>
                 </div>
               ))}
@@ -360,19 +367,156 @@ export default function OutputView({ result, onNewAnalysis }) {
   );
 }
 
+// ── Annuity Section ──────────────────────────────────────────────────────────
+
+function AnnuitySection({ annuity }) {
+  return (
+    <div>
+      {/* Header */}
+      <div style={{
+        fontSize: 9,
+        textTransform: "uppercase",
+        letterSpacing: 2.5,
+        color: STEEL,
+        fontWeight: 600,
+        marginBottom: 14,
+      }}>
+        Annuity Layer Recommendation
+      </div>
+
+      {/* Main annuity card */}
+      <div style={{
+        background: DARK,
+        border: `1px solid #1E2D3D`,
+        borderLeft: `3px solid ${GOLD}`,
+        padding: "24px 28px",
+        marginBottom: 16,
+      }}>
+        {/* Product label */}
+        <div style={{
+          fontSize: 8,
+          textTransform: "uppercase",
+          letterSpacing: 3,
+          color: STEEL,
+          marginBottom: 6,
+          fontWeight: 500,
+        }}>
+          {annuity.product || "NYL IndexFlex"}
+        </div>
+
+        {/* Strategy + Rate row */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 32, marginBottom: 16 }}>
+          <div>
+            <div style={{
+              fontFamily: "'Playfair Display', serif",
+              color: "#E8E2D9",
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: 0.3,
+            }}>
+              {annuity.recommendedStrategy || "—"}
+            </div>
+            <div style={{ fontSize: 10, color: STEEL, marginTop: 4, letterSpacing: 1 }}>
+              Recommended Strategy
+            </div>
+          </div>
+
+          {annuity.currentRate && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: 28,
+                fontWeight: 700,
+                color: GOLD,
+                letterSpacing: -0.5,
+                lineHeight: 1,
+              }}>
+                {annuity.currentRate}
+              </div>
+              <div style={{ fontSize: 9, color: STEEL, marginTop: 4, letterSpacing: 1, textTransform: "uppercase" }}>
+                Current Rate
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Rationale */}
+        {annuity.rationale && (
+          <p style={{
+            fontSize: 12,
+            color: "#A8B4BF",
+            lineHeight: 1.7,
+            margin: 0,
+            fontStyle: "italic",
+          }}>
+            {annuity.rationale}
+          </p>
+        )}
+      </div>
+
+      {/* Suggested Allocation */}
+      {annuity.suggestedAllocation && (
+        <div style={{
+          border: `1px solid ${BORDER}`,
+          background: "#FDFAF5",
+          padding: "16px 20px",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: 2,
+            color: STEEL,
+            fontWeight: 600,
+            marginBottom: 8,
+          }}>
+            Suggested Portfolio Split
+          </div>
+          <div style={{
+            fontSize: 14,
+            color: TEXT,
+            fontWeight: 600,
+            letterSpacing: 0.3,
+            fontFamily: "'Playfair Display', serif",
+          }}>
+            {annuity.suggestedAllocation}
+          </div>
+        </div>
+      )}
+
+      {/* Annuity talking points */}
+      {annuity.talkingPoints?.length > 0 && (
+        <div>
+          <div style={{
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: 2,
+            color: STEEL,
+            fontWeight: 600,
+            marginBottom: 10,
+          }}>
+            Annuity Talking Points
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {annuity.talkingPoints.map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <span style={{ color: GOLD, fontSize: 10, marginTop: 3, flexShrink: 0 }}>◆</span>
+                <span style={{ fontSize: 13, color: TEXT, lineHeight: 1.7 }}>{t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function PageHeader({ title }) {
   return (
     <div style={{ marginBottom: 36 }}>
-      <div style={{
-        fontSize: 9,
-        textTransform: "uppercase",
-        letterSpacing: 3,
-        color: STEEL,
-        marginBottom: 8,
-        fontWeight: 500,
-      }}>
+      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 3, color: STEEL, marginBottom: 8, fontWeight: 500 }}>
         F.A.S.T. · Financial Advisory Steward Technology
       </div>
       <h2 style={{
@@ -410,25 +554,24 @@ function Section({ title, children }) {
 
 function ActionBtn({ onClick, children, primary, disabled }) {
   const [hover, setHover] = useState(false);
-  const base = {
-    padding: "10px 22px",
-    border: `1px solid ${primary ? "#C4992A" : "#C5BDB0"}`,
-    background: primary && hover ? "#C4992A" : "transparent",
-    color: primary ? (hover ? "#06101D" : "#C4992A") : "#4A5A6A",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    cursor: disabled ? "wait" : "pointer",
-    fontFamily: "inherit",
-    transition: "all 0.15s",
-    opacity: disabled ? 0.5 : 1,
-  };
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      style={base}
+      style={{
+        padding: "10px 22px",
+        border: `1px solid ${primary ? "#C4992A" : "#C5BDB0"}`,
+        background: primary && hover ? "#C4992A" : "transparent",
+        color: primary ? (hover ? "#06101D" : "#C4992A") : "#4A5A6A",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        cursor: disabled ? "wait" : "pointer",
+        fontFamily: "inherit",
+        transition: "all 0.15s",
+        opacity: disabled ? 0.5 : 1,
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >

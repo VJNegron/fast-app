@@ -15,6 +15,14 @@ const MODEL_LETTERS = ["A", "B", "C", "D", "E"];
 
 const emptyModel = (letter) => ({ letter, name: "", riskProfile: "", allocation: "", whenToUse: "" });
 
+const ANNUITY_STRATEGY_NAMES = [
+  "S&P 500 Cap",
+  "S&P 500 Flat",
+  "Russell 2000 Cap",
+  "Russell 2000 Flat",
+  "Fixed Account",
+];
+
 const SAMPLE_BRAIN = {
   advisorName: "Mathew Steward",
   firm: "Stewardship Financial Group",
@@ -27,6 +35,19 @@ const SAMPLE_BRAIN = {
     { letter: "D", name: "Growth", riskProfile: "Moderately aggressive — growth-first, 10+ year horizon", allocation: "70% equity funds, 15% international equity, 10% bond funds, 5% cash", whenToUse: "Younger clients or high earners maximizing long-term accumulation, comfortable with volatility" },
     { letter: "E", name: "Maximum Accumulation", riskProfile: "Aggressive — maximum growth, volatility accepted", allocation: "85% equity funds (growth tilt), 15% international/emerging markets", whenToUse: "Clients under 40 with long horizons, strong cash flow, fully funded protection, and high risk tolerance" },
   ],
+  annuityRates: {
+    product: "NYL IndexFlex",
+    lastUpdated: "June 2026",
+    suitabilityNotes: "Appropriate for clients within 10 years of retirement seeking guaranteed income layer. Minimum $100k. 5-year surrender. IRA rollover eligible.",
+    defaultAllocation: "30% American Funds IS Growth (variable) / 20% S&P 500 Index (variable) / remainder across index-linked strategies",
+    strategies: [
+      { name: "S&P 500 Cap",       standard: "8.50%",  enhanced: "10.50%" },
+      { name: "S&P 500 Flat",      standard: "7.50%",  enhanced: "9.00%"  },
+      { name: "Russell 2000 Cap",  standard: "9.25%",  enhanced: "11.25%" },
+      { name: "Russell 2000 Flat", standard: "8.25%",  enhanced: "9.75%"  },
+      { name: "Fixed Account",     standard: "2.90%",  enhanced: ""       },
+    ],
+  },
 };
 
 const EMPTY_BRAIN = {
@@ -34,6 +55,13 @@ const EMPTY_BRAIN = {
   firm: "",
   preferences: "",
   models: MODEL_LETTERS.map(emptyModel),
+  annuityRates: {
+    product: "NYL IndexFlex",
+    lastUpdated: "",
+    suitabilityNotes: "",
+    defaultAllocation: "",
+    strategies: ANNUITY_STRATEGY_NAMES.map((name) => ({ name, standard: "", enhanced: "" })),
+  },
 };
 
 // Shared input style
@@ -61,18 +89,41 @@ const labelStyle = {
 };
 
 export default function BrainView() {
-  const [brain, setBrain]       = useState(EMPTY_BRAIN);
+  const [brain, setBrain]         = useState(EMPTY_BRAIN);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [focusField, setFocusField] = useState(null);
 
   useEffect(() => {
     const stored = loadBrain();
-    if (stored) setBrain(stored);
+    if (stored) {
+      // Backwards-compat: add annuityRates if stored brain predates v2
+      if (!stored.annuityRates) {
+        stored.annuityRates = EMPTY_BRAIN.annuityRates;
+      }
+      setBrain(stored);
+    }
   }, []);
 
   function updateModel(i, field, value) {
     const models = brain.models.map((m, idx) => (idx === i ? { ...m, [field]: value } : m));
     setBrain((b) => ({ ...b, models }));
+  }
+
+  function updateAnnuityField(field, value) {
+    setBrain((b) => ({
+      ...b,
+      annuityRates: { ...b.annuityRates, [field]: value },
+    }));
+  }
+
+  function updateAnnuityRate(i, field, value) {
+    const strategies = (brain.annuityRates?.strategies || []).map((s, idx) =>
+      idx === i ? { ...s, [field]: value } : s
+    );
+    setBrain((b) => ({
+      ...b,
+      annuityRates: { ...b.annuityRates, strategies },
+    }));
   }
 
   function handleSave() {
@@ -115,7 +166,7 @@ export default function BrainView() {
       {/* ── Advisor Identity ───────────────────────────────────────────────── */}
       <SectionLabel>Advisor Identity</SectionLabel>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-        <Field label="Advisor Name" focusKey="name" focusField={focusField} setFocusField={setFocusField}>
+        <Field label="Advisor Name">
           <input
             style={{ ...inputStyle, borderColor: focusField === "name" ? GOLD : BORDER }}
             value={brain.advisorName}
@@ -125,7 +176,7 @@ export default function BrainView() {
             placeholder="Mathew Steward"
           />
         </Field>
-        <Field label="Firm" focusKey="firm" focusField={focusField} setFocusField={setFocusField}>
+        <Field label="Firm">
           <input
             style={{ ...inputStyle, borderColor: focusField === "firm" ? GOLD : BORDER }}
             value={brain.firm}
@@ -166,6 +217,163 @@ export default function BrainView() {
         {brain.models.map((m, i) => (
           <ModelCard key={m.letter} m={m} i={i} onUpdate={updateModel} />
         ))}
+      </div>
+
+      {/* ── NYL IndexFlex Rate Management ────────────────────────────────── */}
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
+          <SectionLabel>Annuity Strategy — NYL IndexFlex Rates</SectionLabel>
+          <span style={{
+            fontSize: 8,
+            textTransform: "uppercase",
+            letterSpacing: 2,
+            color: GOLD,
+            fontWeight: 600,
+            border: `1px solid rgba(196,153,42,0.3)`,
+            padding: "2px 8px",
+            marginBottom: 12,
+            display: "inline-block",
+          }}>
+            Update Weekly
+          </span>
+        </div>
+
+        <p style={{ fontSize: 12, color: MUTED, marginBottom: 18, lineHeight: 1.7 }}>
+          NYL updates cap and flat rates weekly. Update this table each time you receive the PDF.
+          These rates are injected into the AI when a client requests guarantees.
+        </p>
+
+        <div style={{
+          border: `1px solid ${BORDER}`,
+          background: "#FDFAF5",
+        }}>
+          {/* Rate table header */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 130px 130px",
+            gap: 0,
+            borderBottom: `1px solid ${BORDER}`,
+            background: DARK,
+            padding: "10px 20px",
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#8A9BAD" }}>
+              Strategy
+            </div>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#8A9BAD" }}>
+              Standard Rate
+            </div>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: GOLD }}>
+              Enhanced Rate
+            </div>
+          </div>
+
+          {/* Rate rows */}
+          {(brain.annuityRates?.strategies || []).map((s, i) => (
+            <div
+              key={s.name}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 130px 130px",
+                gap: 0,
+                borderBottom: i < (brain.annuityRates.strategies.length - 1) ? `1px solid ${BORDER}` : "none",
+                alignItems: "center",
+              }}
+            >
+              <div style={{
+                padding: "12px 20px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: TEXT,
+                letterSpacing: 0.3,
+              }}>
+                {s.name}
+              </div>
+              <div style={{ padding: "8px 12px 8px 0" }}>
+                <input
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: `1px solid ${BORDER}`,
+                    padding: "6px 10px",
+                    fontSize: 13,
+                    color: TEXT,
+                    outline: "none",
+                    fontFamily: "inherit",
+                    letterSpacing: 0.5,
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                  value={s.standard}
+                  onChange={(e) => updateAnnuityRate(i, "standard", e.target.value)}
+                  placeholder="0.00%"
+                />
+              </div>
+              <div style={{ padding: "8px 20px 8px 0" }}>
+                <input
+                  style={{
+                    width: "100%",
+                    background: s.name === "Fixed Account" ? "transparent" : "rgba(196,153,42,0.04)",
+                    border: `1px solid ${s.name === "Fixed Account" ? "#E0DDD8" : "rgba(196,153,42,0.25)"}`,
+                    padding: "6px 10px",
+                    fontSize: 13,
+                    color: GOLD,
+                    outline: "none",
+                    fontFamily: "inherit",
+                    letterSpacing: 0.5,
+                    fontWeight: 700,
+                    textAlign: "center",
+                  }}
+                  value={s.enhanced}
+                  onChange={(e) => updateAnnuityRate(i, "enhanced", e.target.value)}
+                  placeholder={s.name === "Fixed Account" ? "N/A" : "0.00%"}
+                  disabled={s.name === "Fixed Account"}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Metadata row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+          <Field label="Last Updated (e.g. June 27, 2026)">
+            <input
+              style={{ ...inputStyle, fontSize: 12 }}
+              value={brain.annuityRates?.lastUpdated || ""}
+              onChange={(e) => updateAnnuityField("lastUpdated", e.target.value)}
+              placeholder="June 2026"
+            />
+          </Field>
+          <Field label="Product Name">
+            <input
+              style={{ ...inputStyle, fontSize: 12 }}
+              value={brain.annuityRates?.product || ""}
+              onChange={(e) => updateAnnuityField("product", e.target.value)}
+              placeholder="NYL IndexFlex"
+            />
+          </Field>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <Field label="Suitability Notes (injected into AI when annuity gate is triggered)">
+            <textarea
+              style={{ ...inputStyle, minHeight: 72, resize: "vertical", fontSize: 12 }}
+              value={brain.annuityRates?.suitabilityNotes || ""}
+              onChange={(e) => updateAnnuityField("suitabilityNotes", e.target.value)}
+              placeholder="Appropriate for clients within 10 years of retirement…"
+            />
+          </Field>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <Field label="Default Allocation Approach">
+            <input
+              style={{ ...inputStyle, fontSize: 12 }}
+              value={brain.annuityRates?.defaultAllocation || ""}
+              onChange={(e) => updateAnnuityField("defaultAllocation", e.target.value)}
+              placeholder="30% American Funds IS Growth / 20% S&P 500 Index / split index strategies…"
+            />
+          </Field>
+        </div>
       </div>
 
       {/* ── Actions ───────────────────────────────────────────────────────── */}
@@ -286,9 +494,9 @@ function ModelCard({ m, i, onUpdate }) {
           {/* Three fields */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14 }}>
             {[
-              ["Risk Profile",        "riskProfile", "Moderate, 7+ yr horizon"],
-              ["Target Allocation",   "allocation",  "50% equity, 30% bonds…"],
-              ["When to Use",        "whenToUse",   "Mid-career accumulators…"],
+              ["Risk Profile",      "riskProfile", "Moderate, 7+ yr horizon"],
+              ["Target Allocation", "allocation",  "50% equity, 30% bonds…"],
+              ["When to Use",       "whenToUse",   "Mid-career accumulators…"],
             ].map(([label, field, ph]) => (
               <div key={field}>
                 <div style={labelStyle}>{label}</div>
