@@ -160,9 +160,9 @@ export function exportRecommendationPDF(result, brain) {
       y = guardPage(doc, y, 12);
       doc.setFont("helvetica", "normal");
       setTxt(doc, C.gold);
-      doc.text("◆", MARGIN, y);
+      doc.text("->", MARGIN, y);
       setTxt(doc, C.text);
-      y = drawWrapped(doc, adj, MARGIN + 6, y, CONTENT_W - 8);
+      y = drawWrapped(doc, adj, MARGIN + 8, y, CONTENT_W - 10);
       y += 3;
     });
     y += 5;
@@ -198,13 +198,13 @@ export function exportRecommendationPDF(result, brain) {
     doc.setLineWidth(0.5);
     doc.roundedRect(MARGIN - 3, y - 5, CONTENT_W + 6, flagHeight, 2, 2, "FD");
 
-    y = sectionHeading(doc, "⚑  Address First — Your Rules", y);
+    y = sectionHeading(doc, "!! Address First — Your Rules", y);
     doc.setFontSize(9.5);
     result.flags.forEach((flag) => {
       y = guardPage(doc, y, 12);
       doc.setFont("helvetica", "normal");
       setTxt(doc, C.red);
-      doc.text("●", MARGIN, y);
+      doc.text("!", MARGIN, y);
       setTxt(doc, C.text);
       y = drawWrapped(doc, flag, MARGIN + 6, y, CONTENT_W - 10);
       y += 3;
