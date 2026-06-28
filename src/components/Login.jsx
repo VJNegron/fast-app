@@ -225,7 +225,7 @@ export default function Login({ onLogin }) {
         <div className="fast-login-wordmark">
           <div className="fast-login-wordmark-text">F.A.S.T.</div>
           <div className="fast-login-wordmark-rule" />
-          <div className="fast-login-wordmark-sub">Financial Advisory Steward Technology</div>
+          <div className="fast-login-wordmark-sub">Financial Advisory Stewardship Technology</div>
         </div>
 
         <form className="fast-login-card" onSubmit={handleSubmit}>

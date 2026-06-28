@@ -69,7 +69,7 @@ export function exportRecommendationPDF(result, brain) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   setTxt(doc, C.muted);
-  doc.text("Financial Advisory Steward Technology", MARGIN, 25);
+  doc.text("Financial Advisory Stewardship Technology", MARGIN, 25);
   if (brain.advisorName) {
     doc.text(`${brain.advisorName}${brain.firm ? "  ·  " + brain.firm : ""}`, MARGIN, 31);
   }
@@ -171,8 +171,6 @@ export function exportRecommendationPDF(result, brain) {
   // ── TALKING POINTS ───────────────────────────────────────────────────────
   if (result.talkingPoints?.length) {
     y = guardPage(doc, y, 20);
-    // Light gray band
-    const tpStartY = y - 4;
     y = sectionHeading(doc, "Meeting Talking Points", y);
     doc.setFontSize(9.5);
     result.talkingPoints.forEach((pt, i) => {
@@ -214,7 +212,6 @@ export function exportRecommendationPDF(result, brain) {
   }
 
   // ── FOOTER ───────────────────────────────────────────────────────────────
-  // Draw footer on every page
   const totalPages = doc.internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
