@@ -434,7 +434,7 @@ function PageHeader({ title }) {
   return (
     <div style={{ marginBottom: 36 }}>
       <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 3, color: STEEL, marginBottom: 8, fontWeight: 500 }}>
-        F.A.S.T. · Financial Advisory Steward Technology
+        F.A.S.T. · Financial Advisory Stewardship Technology
       </div>
       <h2 style={{
         fontFamily: "'Playfair Display', serif",
