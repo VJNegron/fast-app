@@ -237,7 +237,7 @@ export default function Shell({ onLogout }) {
             <div className="fast-wordmark">F.A.S.T.</div>
             <div className="fast-wordmark-rule" />
             <div className="fast-wordmark-sub">
-              Financial Advisory<br />Steward Technology
+              Financial Advisory<br />Stewardship Technology
             </div>
           </div>
           <nav className="fast-nav">
