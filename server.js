@@ -59,10 +59,8 @@ function requireAuth(req, res, next) {
 }
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
-
-// Max 10 login attempts per IP per 15 minutes — blocks brute-force
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
@@ -76,7 +74,6 @@ app.post("/api/auth/login", loginLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const usernameMatch = !FAST_USERNAME || username === FAST_USERNAME;
   if (!password || password !== FAST_PASSWORD || !usernameMatch) {
-    // Consistent response time to prevent timing attacks
     return setTimeout(() => res.status(401).json({ error: "Incorrect username or password." }), 300);
   }
   const token = jwt.sign({ role: "advisor" }, JWT_SECRET, { expiresIn: "7d" });
@@ -91,7 +88,6 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Missing PDF or prompt." });
   }
 
-  // Guard: estimate original PDF size from base64 length
   const estimatedBytes = Math.floor((pdfBase64.length * 3) / 4);
   if (estimatedBytes > MAX_PDF_BYTES) {
     return res.status(400).json({
@@ -102,7 +98,7 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
   try {
     const message = await anthropic.messages.create({
       model: CLAUDE_MODEL,
-      max_tokens: 1500,
+      max_tokens: 2500, // v2: increased from 1500 to support annuityRecommendation block
       messages: [
         {
           role: "user",
@@ -142,29 +138,42 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
 
     res.json(parsed);
   } catch (err) {
-    console.error("Anthropic API error:", err?.status, err?.message);
+    const status = err?.status;
+    console.error("Anthropic API error:", status, err?.message);
 
-    if (err?.status === 413 || err?.message?.includes("too large")) {
+    if (status === 401) {
+      return res.status(500).json({
+        error: "API key rejected — check that ANTHROPIC_API_KEY is set correctly in Railway environment variables.",
+      });
+    }
+
+    if (status === 429) {
+      return res.status(429).json({
+        error: "Rate limit hit — too many requests in a short window. Wait a moment and try again.",
+      });
+    }
+
+    if (status === 413 || err?.message?.includes("too large")) {
       return res.status(400).json({
         error: "The PDF is too large for the AI to process. Try a smaller document.",
       });
     }
 
-    if (err?.status === 408 || err?.message?.toLowerCase().includes("timeout")) {
+    if (status === 408 || err?.message?.toLowerCase().includes("timeout")) {
       return res.status(408).json({
-        error:
-          "Analysis timed out — the document may be very large or complex. Try again or upload a shorter version.",
+        error: "Analysis timed out — the document may be very large or complex. Try again or upload a shorter version.",
       });
     }
 
-    if (err?.status === 529 || err?.message?.includes("overloaded")) {
+    if (status === 529 || err?.message?.includes("overloaded")) {
       return res.status(503).json({
         error: "The AI service is momentarily busy. Wait 30 seconds and try again.",
       });
     }
 
+    // Fallback — log status so Railway logs show the real cause
     res.status(500).json({
-      error: "Analysis failed. Check your API key is valid and try again.",
+      error: `Analysis failed (${status || "unknown error"}). Check Railway logs for details.`,
     });
   }
 });
@@ -173,7 +182,6 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
 if (IS_PROD) {
   const distPath = join(__dirname, "dist");
   app.use(express.static(distPath));
-  // SPA fallback — any non-API route serves index.html
   app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(join(distPath, "index.html"));
   });
