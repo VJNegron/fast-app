@@ -19,7 +19,7 @@ const FAST_USERNAME = process.env.FAST_USERNAME;
 const FAST_PASSWORD = process.env.FAST_PASSWORD;
 const JWT_SECRET = process.env.JWT_SECRET;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20241022";
 const IS_PROD = process.env.NODE_ENV === "production";
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB
 
