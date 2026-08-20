@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
-import { loadBrain, saveBrain } from "../lib/storage";
+import { useState, useEffect, useRef } from "react";
+import { loadBrain, saveBrain, pushServerBrain } from "../lib/storage";
+import { parseRates } from "../lib/api";
 
-// ── Wall Street brand tokens ──────────────────────────────────────────────────
-const DARK   = "#06101D";
-const NAVY   = "#0D1825";
-const GOLD   = "#C4992A";
-const STEEL  = "#5C6E7E";
+// ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
+const DARK   = "#1B1A33"; // deep shade of brand navy
+const NAVY   = "#2B2A4F"; // SFG Navy (PANTONE 655C)
+const GOLD   = "#C6B159"; // SFG Gold (PANTONE 617C)
+const STEEL  = "#5F6285"; // muted navy-slate, harmonized to brand navy
 const CREAM  = "#F5F1E8";
 const BORDER = "#DDD5C5";
 const TEXT   = "#1A2438";
@@ -92,6 +93,9 @@ export default function BrainView() {
   const [brain, setBrain]         = useState(EMPTY_BRAIN);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [focusField, setFocusField] = useState(null);
+  const [rateUpload, setRateUpload] = useState("idle"); // idle | reading | done | error
+  const [rateMsg, setRateMsg]     = useState("");
+  const rateFileRef               = useRef(null);
 
   useEffect(() => {
     const stored = loadBrain();
@@ -126,9 +130,10 @@ export default function BrainView() {
     }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     setSaveState("saving");
-    const ok = saveBrain(brain);
+    saveBrain(brain); // local cache first
+    const ok = await pushServerBrain(brain); // server = source of truth
     if (ok) {
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
@@ -138,11 +143,69 @@ export default function BrainView() {
     }
   }
 
-  function handleLoadSample() {
+  async function handleLoadSample() {
     setBrain(SAMPLE_BRAIN);
     saveBrain(SAMPLE_BRAIN);
+    await pushServerBrain(SAMPLE_BRAIN);
     setSaveState("saved");
     setTimeout(() => setSaveState("idle"), 2000);
+  }
+
+  // Weekly rate sheet: PDF → Claude extraction → merge into the rate table
+  async function handleRatePdf(file) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setRateUpload("error");
+      setRateMsg("Upload the NYL rate sheet as a PDF.");
+      return;
+    }
+    setRateUpload("reading");
+    setRateMsg("Reading the rate sheet — typically 5–15 seconds…");
+    try {
+      const pdfBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = () => reject(new Error("Could not read that file."));
+        reader.readAsDataURL(file);
+      });
+
+      const parsed = await parseRates(pdfBase64);
+
+      // Merge extracted rates onto existing rows by fuzzy name match so the
+      // table's structure and order stay intact
+      const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const incoming = parsed.strategies || [];
+      const strategies = (brain.annuityRates?.strategies || []).map((row) => {
+        const a = norm(row.name);
+        const match = incoming.find((inc) => {
+          const b = norm(inc.name);
+          return a && b && (a.includes(b) || b.includes(a));
+        });
+        return match
+          ? { ...row, standard: match.standard || row.standard, enhanced: match.enhanced ?? row.enhanced }
+          : row;
+      });
+
+      const updated = {
+        ...brain,
+        annuityRates: {
+          ...brain.annuityRates,
+          strategies,
+          lastUpdated: parsed.lastUpdated || brain.annuityRates?.lastUpdated || "",
+          product: parsed.product || brain.annuityRates?.product || "",
+        },
+      };
+      setBrain(updated);
+      saveBrain(updated);
+      await pushServerBrain(updated);
+      setRateUpload("done");
+      setRateMsg(
+        `✓ Rates updated from ${file.name}${parsed.lastUpdated ? ` — as of ${parsed.lastUpdated}` : ""}. Review the table below.`
+      );
+    } catch (err) {
+      setRateUpload("error");
+      setRateMsg(err.message || "Could not read that rate sheet. You can still update the table manually.");
+    }
   }
 
   const brainComplete =
@@ -229,7 +292,7 @@ export default function BrainView() {
             letterSpacing: 2,
             color: GOLD,
             fontWeight: 600,
-            border: `1px solid rgba(196,153,42,0.3)`,
+            border: `1px solid rgba(198,177,89,0.3)`,
             padding: "2px 8px",
             marginBottom: 12,
             display: "inline-block",
@@ -239,9 +302,47 @@ export default function BrainView() {
         </div>
 
         <p style={{ fontSize: 12, color: MUTED, marginBottom: 18, lineHeight: 1.7 }}>
-          NYL updates cap and flat rates weekly. Update this table each time you receive the PDF.
-          These rates are injected into the AI when a client requests guarantees.
+          NYL updates cap and flat rates weekly. Upload the rate sheet PDF and the table updates
+          itself — or edit any cell by hand. These rates are injected into the AI when a client
+          requests guarantees.
         </p>
+
+        {/* Weekly rate sheet upload */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          flexWrap: "wrap",
+          marginBottom: 18,
+          padding: "14px 18px",
+          border: `1px dashed ${rateUpload === "done" ? GOLD : "#C0B8AC"}`,
+          background: rateUpload === "done" ? "#FEFBF3" : "#FAF8F4",
+        }}>
+          <input
+            ref={rateFileRef}
+            type="file"
+            accept="application/pdf"
+            style={{ display: "none" }}
+            onChange={(e) => { handleRatePdf(e.target.files[0]); e.target.value = ""; }}
+          />
+          <ActionBtn
+            onClick={() => rateUpload !== "reading" && rateFileRef.current?.click()}
+            disabled={rateUpload === "reading"}
+          >
+            {rateUpload === "reading" ? "Reading PDF…" : "Upload Weekly Rate Sheet"}
+          </ActionBtn>
+          {rateMsg && (
+            <span style={{
+              fontSize: 11,
+              lineHeight: 1.6,
+              color: rateUpload === "error" ? "#8B3A3A" : rateUpload === "done" ? "#3A7A5A" : MUTED,
+              flex: 1,
+              minWidth: 220,
+            }}>
+              {rateMsg}
+            </span>
+          )}
+        </div>
 
         <div style={{
           border: `1px solid ${BORDER}`,
@@ -256,10 +357,10 @@ export default function BrainView() {
             background: DARK,
             padding: "10px 20px",
           }}>
-            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#8A9BAD" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#A8A9C4" }}>
               Strategy
             </div>
-            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#8A9BAD" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: "#A8A9C4" }}>
               Standard Rate
             </div>
             <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 2, color: GOLD }}>
@@ -312,8 +413,8 @@ export default function BrainView() {
                 <input
                   style={{
                     width: "100%",
-                    background: s.name === "Fixed Account" ? "transparent" : "rgba(196,153,42,0.04)",
-                    border: `1px solid ${s.name === "Fixed Account" ? "#E0DDD8" : "rgba(196,153,42,0.25)"}`,
+                    background: s.name === "Fixed Account" ? "transparent" : "rgba(198,177,89,0.04)",
+                    border: `1px solid ${s.name === "Fixed Account" ? "#E0DDD8" : "rgba(198,177,89,0.25)"}`,
                     padding: "6px 10px",
                     fontSize: 13,
                     color: GOLD,
@@ -431,7 +532,7 @@ function ModelCard({ m, i, onUpdate }) {
           width: 36,
           height: 36,
           background: hasContent ? DARK : "#E8E4DC",
-          border: hasContent ? `1px solid #1A2B3C` : "none",
+          border: hasContent ? `1px solid #3A3960` : "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

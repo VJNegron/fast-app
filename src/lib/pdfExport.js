@@ -3,16 +3,17 @@
 // Uses jsPDF — no server round-trip needed.
 
 import jsPDF from "jspdf";
+import logoStacked from "../assets/sfg-logo-stacked.png?inline";
 
-// Brand colors as RGB arrays for jsPDF
+// Brand colors as RGB arrays for jsPDF (Stewardship Financial Group style guide)
 const C = {
-  navy: [13, 27, 42],
-  gold: [201, 168, 76],
-  accent: [26, 58, 92],
+  navy: [43, 42, 79],    // SFG Navy — PANTONE 655C
+  gold: [198, 177, 89],  // SFG Gold — PANTONE 617C
+  accent: [62, 60, 110],
   cream: [255, 248, 231],
   gray: [245, 245, 245],
   text: [55, 65, 81],
-  muted: [138, 147, 163],
+  muted: [158, 157, 190],
   red: [192, 57, 43],
 };
 
@@ -60,20 +61,28 @@ export function exportRecommendationPDF(result, brain) {
   setFill(doc, C.navy);
   doc.rect(0, 0, PAGE_W, 45, "F");
 
+  // SFG stacked logo (square) at left
+  try {
+    doc.addImage(logoStacked, "PNG", MARGIN, 10, 25, 25);
+  } catch (e) {
+    console.warn("Logo embed failed, continuing without it:", e);
+  }
+  const textX = MARGIN + 31;
+
   // Wordmark
   doc.setFont("times", "bold");
   doc.setFontSize(26);
   setTxt(doc, C.gold);
-  doc.text("F.A.S.T.", MARGIN, 18);
+  doc.text("F.A.S.T.", textX, 18);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   setTxt(doc, C.muted);
-  doc.text("Financial Advisory Stewardship Technology", MARGIN, 25);
+  doc.text("Financial Advisory Stewardship Technology", textX, 25);
   if (brain.advisorName) {
-    doc.text(`${brain.advisorName}${brain.firm ? "  ·  " + brain.firm : ""}`, MARGIN, 31);
+    doc.text(`${brain.advisorName}${brain.firm ? "  ·  " + brain.firm : ""}`, textX, 31);
   }
-  doc.text(`Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, MARGIN, 37);
+  doc.text(`Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, textX, 37);
 
   // Model Seal (right side of header)
   const sealCx = PAGE_W - MARGIN - 18;

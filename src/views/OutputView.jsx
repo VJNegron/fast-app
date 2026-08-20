@@ -2,11 +2,11 @@ import { useState } from "react";
 import { loadBrain } from "../lib/storage";
 import { exportRecommendationPDF } from "../lib/pdfExport";
 
-// ── Wall Street brand tokens ──────────────────────────────────────────────────
-const DARK   = "#06101D";
-const NAVY   = "#0D1825";
-const GOLD   = "#C4992A";
-const STEEL  = "#5C6E7E";
+// ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
+const DARK   = "#1B1A33"; // deep shade of brand navy
+const NAVY   = "#2B2A4F"; // SFG Navy (PANTONE 655C)
+const GOLD   = "#C6B159"; // SFG Gold (PANTONE 617C)
+const STEEL  = "#5F6285"; // muted navy-slate, harmonized to brand navy
 const CREAM  = "#F5F1E8";
 const BORDER = "#DDD5C5";
 const TEXT   = "#1A2438";
@@ -133,7 +133,7 @@ export default function OutputView({ result, onNewAnalysis }) {
       {/* ── THE SEAL ─────────────────────────────────────────────────────── */}
       <div style={{
         background: DARK,
-        border: `1px solid #1A2B3C`,
+        border: `1px solid #3A3960`,
         padding: "40px 32px",
         marginBottom: 32,
         display: "flex",
@@ -151,7 +151,7 @@ export default function OutputView({ result, onNewAnalysis }) {
           fontFamily: "'Playfair Display', serif",
           fontSize: 120,
           fontWeight: 700,
-          color: "rgba(196,153,42,0.04)",
+          color: "rgba(198,177,89,0.04)",
           letterSpacing: -4,
           userSelect: "none",
           lineHeight: 1,
@@ -170,7 +170,7 @@ export default function OutputView({ result, onNewAnalysis }) {
           justifyContent: "center",
           position: "relative",
         }}>
-          <div style={{ position: "absolute", inset: 4, border: `1px solid rgba(196,153,42,0.3)` }} />
+          <div style={{ position: "absolute", inset: 4, border: `1px solid rgba(198,177,89,0.3)` }} />
           <span style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: 44,
@@ -209,8 +209,8 @@ export default function OutputView({ result, onNewAnalysis }) {
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "rgba(196,153,42,0.12)",
-              border: `1px solid rgba(196,153,42,0.35)`,
+              background: "rgba(198,177,89,0.12)",
+              border: `1px solid rgba(198,177,89,0.35)`,
               padding: "4px 12px",
             }}>
               <span style={{ fontSize: 8, color: GOLD }}>◆</span>
@@ -309,7 +309,7 @@ export default function OutputView({ result, onNewAnalysis }) {
         <>
           <div style={{
             background: "#FFF8F0",
-            border: `1px solid rgba(196,153,42,0.3)`,
+            border: `1px solid rgba(198,177,89,0.3)`,
             borderLeft: `3px solid ${GOLD}`,
             padding: "20px 24px",
             marginBottom: 8,
@@ -318,7 +318,7 @@ export default function OutputView({ result, onNewAnalysis }) {
               fontSize: 9,
               textTransform: "uppercase",
               letterSpacing: 2,
-              color: "#8B6914",
+              color: "#7A6C2E",
               fontWeight: 600,
               marginBottom: 14,
             }}>
@@ -387,7 +387,7 @@ function AnnuitySection({ annuity }) {
       {/* Main annuity card */}
       <div style={{
         background: DARK,
-        border: `1px solid #1E2D3D`,
+        border: `1px solid #3A3960`,
         borderLeft: `3px solid ${GOLD}`,
         padding: "24px 28px",
         marginBottom: 16,
@@ -444,7 +444,7 @@ function AnnuitySection({ annuity }) {
         {annuity.rationale && (
           <p style={{
             fontSize: 12,
-            color: "#A8B4BF",
+            color: "#B9BAD0",
             lineHeight: 1.7,
             margin: 0,
             fontStyle: "italic",
@@ -560,9 +560,9 @@ function ActionBtn({ onClick, children, primary, disabled }) {
       disabled={disabled}
       style={{
         padding: "10px 22px",
-        border: `1px solid ${primary ? "#C4992A" : "#C5BDB0"}`,
-        background: primary && hover ? "#C4992A" : "transparent",
-        color: primary ? (hover ? "#06101D" : "#C4992A") : "#4A5A6A",
+        border: `1px solid ${primary ? GOLD : "#C5BDB0"}`,
+        background: primary && hover ? GOLD : "transparent",
+        color: primary ? (hover ? DARK : GOLD) : "#6E6F92",
         fontSize: 11,
         fontWeight: 600,
         letterSpacing: 1.5,

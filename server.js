@@ -10,6 +10,7 @@ import jwt from "jsonwebtoken";
 import Anthropic from "@anthropic-ai/sdk";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +23,11 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const CLAUDE_MODEL = (process.env.CLAUDE_MODEL || "claude-sonnet-4-6").trim();
 const IS_PROD = process.env.NODE_ENV === "production";
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// Brain persistence — JSON file store. On Railway, attach a volume and set
+// DATA_DIR to its mount path so the brain survives redeploys.
+const DATA_DIR = process.env.DATA_DIR || join(__dirname, "data");
+const BRAIN_FILE = join(DATA_DIR, "brain.json");
 
 // Startup validation
 if (!FAST_PASSWORD) throw new Error("FAST_PASSWORD is not set in .env");
@@ -175,6 +181,122 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
     res.status(500).json({
       error: `Analysis failed (${status || "unknown error"}). Check Railway logs for details.`,
     });
+  }
+});
+
+// ── Advisor Brain persistence ────────────────────────────────────────────────
+// Server-side store so the brain follows the advisor across browsers/devices.
+// Client keeps a localStorage cache; server is the source of truth.
+
+app.get("/api/brain", requireAuth, (_req, res) => {
+  if (!existsSync(BRAIN_FILE)) return res.json({ brain: null });
+  try {
+    const brain = JSON.parse(readFileSync(BRAIN_FILE, "utf8"));
+    res.json({ brain });
+  } catch (err) {
+    console.error("Brain read failed:", err?.message);
+    res.status(500).json({ error: "Could not read the stored Advisor Brain." });
+  }
+});
+
+app.put("/api/brain", requireAuth, (req, res) => {
+  const { brain } = req.body || {};
+  if (!brain || typeof brain !== "object" || Array.isArray(brain)) {
+    return res.status(400).json({ error: "Missing brain payload." });
+  }
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    // Atomic write: temp file + rename so a crash can't corrupt the brain
+    const tmp = join(DATA_DIR, `.brain-${Date.now()}.tmp`);
+    writeFileSync(tmp, JSON.stringify(brain));
+    renameSync(tmp, BRAIN_FILE);
+    res.json({ status: "saved" });
+  } catch (err) {
+    console.error("Brain save failed:", err?.message);
+    res.status(500).json({ error: "Could not save the Advisor Brain on the server." });
+  }
+});
+
+// ── Weekly rate sheet parser ─────────────────────────────────────────────────
+// Matt uploads the NYL rate PDF; Claude extracts the strategy table as JSON.
+app.post("/api/parse-rates", requireAuth, async (req, res) => {
+  const { pdfBase64 } = req.body || {};
+  if (!pdfBase64) {
+    return res.status(400).json({ error: "Missing PDF." });
+  }
+
+  const estimatedBytes = Math.floor((pdfBase64.length * 3) / 4);
+  if (estimatedBytes > MAX_PDF_BYTES) {
+    return res.status(400).json({ error: "That rate sheet is over 25 MB — send a smaller export." });
+  }
+
+  const prompt = `You are a data extraction engine for a financial advisory tool. The attached PDF is a weekly annuity rate sheet (e.g., NYL IndexFlex cap/flat rates, standard and enhanced).
+
+Extract every crediting strategy and its current rates. Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this structure:
+{
+  "product": "product name from the document, or null",
+  "lastUpdated": "the effective/as-of date shown on the document, e.g. 'August 2026' — or null if not shown",
+  "strategies": [
+    { "name": "strategy name, e.g. 'S&P 500 Cap'", "standard": "standard rate with % sign, e.g. '8.50%'", "enhanced": "enhanced rate with % sign, or empty string if the strategy has none" }
+  ]
+}
+Rules:
+- Include every indexed strategy AND any fixed account.
+- Keep rates exactly as printed, including the % sign.
+- If a strategy shows only one rate, put it in "standard" and leave "enhanced" as an empty string.
+- If you cannot find any rate table in the document, respond with {"error": "no rate table found"} instead.`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+            },
+            { type: "text", text: prompt },
+          ],
+        },
+      ],
+    });
+
+    const rawText = (message.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+    const cleaned = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error("Rate parse failed. Raw response:\n", rawText);
+      return res.status(422).json({
+        error: "Couldn't read a rate table from that PDF. You can still update the rates manually below.",
+      });
+    }
+
+    if (parsed.error || !Array.isArray(parsed.strategies) || parsed.strategies.length === 0) {
+      return res.status(422).json({
+        error: "No rate table found in that PDF. Check it's the weekly rate sheet — or update the rates manually below.",
+      });
+    }
+
+    res.json(parsed);
+  } catch (err) {
+    const status = err?.status;
+    console.error("Anthropic API error (parse-rates):", status, err?.message);
+    if (status === 429) {
+      return res.status(429).json({ error: "Rate limit hit — wait a moment and try again." });
+    }
+    if (status === 529 || err?.message?.includes("overloaded")) {
+      return res.status(503).json({ error: "The AI service is momentarily busy. Wait 30 seconds and try again." });
+    }
+    res.status(500).json({ error: "Rate sheet parsing failed. You can still update the rates manually." });
   }
 });
 

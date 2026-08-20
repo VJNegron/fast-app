@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getToken, clearToken } from "./lib/storage";
+import { getToken, clearToken, syncBrain } from "./lib/storage";
 import Login from "./components/Login";
 import Shell from "./components/Shell";
 
@@ -10,12 +10,25 @@ export default function App() {
   useEffect(() => {
     // Token presence is a soft check — the server will 401 if it's expired
     const token = getToken();
-    setAuthed(!!token);
-    setChecking(false);
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+    // Pull the Advisor Brain from the server before rendering any view —
+    // server is the source of truth so the brain follows the advisor's devices.
+    syncBrain().finally(() => {
+      setAuthed(true);
+      setChecking(false);
+    });
   }, []);
 
   function handleLogin() {
-    setAuthed(true);
+    // Fresh login — sync the brain down before showing the app
+    setChecking(true);
+    syncBrain().finally(() => {
+      setAuthed(true);
+      setChecking(false);
+    });
   }
 
   function handleLogout() {
@@ -29,13 +42,13 @@ export default function App() {
       <div
         style={{
           minHeight: "100vh",
-          background: "#0D1B2A",
+          background: "#1B1A33",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <div style={{ color: "#C9A84C", fontFamily: "'Playfair Display', serif", fontSize: 24 }}>
+        <div style={{ color: "#C6B159", fontFamily: "'Playfair Display', serif", fontSize: 24 }}>
           F.A.S.T.
         </div>
       </div>

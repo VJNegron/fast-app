@@ -2,14 +2,15 @@ import { useState } from "react";
 import BrainView from "../views/BrainView";
 import AnalyzeView from "../views/AnalyzeView";
 import OutputView from "../views/OutputView";
+import logoHorizontal from "../assets/sfg-logo-horizontal.png";
 
-// ── Wall Street brand tokens ──────────────────────────────────────────────────
-const DARK   = "#06101D";
-const NAVY   = "#0D1825";
-const GOLD   = "#C4992A";
-const STEEL  = "#5C6E7E";
+// ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
+const DARK   = "#1B1A33"; // deep shade of brand navy — sidebar / chrome
+const NAVY   = "#2B2A4F"; // SFG Navy (PANTONE 655C)
+const GOLD   = "#C6B159"; // SFG Gold (PANTONE 617C)
+const STEEL  = "#8A8BA8"; // muted periwinkle-slate, harmonized to brand navy
 const CREAM  = "#F5F1E8";
-const BORDER = "#1A2B3C";
+const BORDER = "#3A3960"; // lightened brand navy for hairlines
 
 const NAV_ITEMS = [
   { id: "analyze", label: "New Client Analysis", sub: "Upload PDF · Generate recommendation" },
@@ -67,6 +68,14 @@ export default function Shell({ onLogout }) {
           border-bottom: 1px solid ${BORDER};
         }
 
+        .fast-sidebar-logo {
+          width: 100%;
+          max-width: 185px;
+          height: auto;
+          display: block;
+          margin-bottom: 18px;
+        }
+
         .fast-wordmark {
           font-family: 'Playfair Display', serif;
           color: ${GOLD};
@@ -111,27 +120,27 @@ export default function Shell({ onLogout }) {
           transition: all 0.15s;
           gap: 2px;
         }
-        .fast-nav-item:hover { background: rgba(196,153,42,0.04); }
+        .fast-nav-item:hover { background: rgba(198,177,89,0.04); }
         .fast-nav-item.active {
-          background: rgba(196,153,42,0.06);
+          background: rgba(198,177,89,0.06);
           border-left-color: ${GOLD};
         }
         .fast-nav-label {
           font-size: 12px;
           font-weight: 500;
           letter-spacing: 0.3px;
-          color: #4A5A6A;
+          color: #6E6F92;
           transition: color 0.15s;
         }
-        .fast-nav-item:hover .fast-nav-label { color: #8A9BAA; }
+        .fast-nav-item:hover .fast-nav-label { color: #A8A9C4; }
         .fast-nav-item.active .fast-nav-label { color: ${GOLD}; }
         .fast-nav-sub {
           font-size: 10px;
-          color: #1E2E3E;
+          color: #46456C;
           letter-spacing: 0.2px;
           font-weight: 400;
         }
-        .fast-nav-item.active .fast-nav-sub { color: #3A4E5E; }
+        .fast-nav-item.active .fast-nav-sub { color: #6A6996; }
 
         .fast-sidebar-footer {
           padding: 16px 20px;
@@ -141,15 +150,15 @@ export default function Shell({ onLogout }) {
           font-size: 9px;
           text-transform: uppercase;
           letter-spacing: 1.5px;
-          color: #1E2E3E;
+          color: #46456C;
           line-height: 2;
         }
-        .fast-credit-accent { color: rgba(196,153,42,0.35); }
+        .fast-credit-accent { color: rgba(198,177,89,0.35); }
         .fast-signout {
           display: block;
           margin-top: 10px;
           font-size: 10px;
-          color: #2A3D50;
+          color: #55547E;
           background: transparent;
           border: none;
           cursor: pointer;
@@ -206,6 +215,12 @@ export default function Shell({ onLogout }) {
           letter-spacing: 3px;
         }
 
+        .fast-mobile-logo {
+          height: 24px;
+          width: auto;
+          display: block;
+        }
+
         .fast-overlay {
           display: none;
           position: fixed;
@@ -234,6 +249,7 @@ export default function Shell({ onLogout }) {
         {/* Sidebar */}
         <div className={`fast-sidebar${navOpen ? " open" : ""}`}>
           <div className="fast-sidebar-top">
+            <img className="fast-sidebar-logo" src={logoHorizontal} alt="Stewardship Financial Group" />
             <div className="fast-wordmark">F.A.S.T.</div>
             <div className="fast-wordmark-rule" />
             <div className="fast-wordmark-sub">
@@ -263,7 +279,7 @@ export default function Shell({ onLogout }) {
             <button className="fast-hamburger" onClick={() => setNavOpen((o) => !o)} aria-label="Menu">
               {navOpen ? "✕" : "☰"}
             </button>
-            <div className="fast-mobile-wordmark">F.A.S.T.</div>
+            <img className="fast-mobile-logo" src={logoHorizontal} alt="Stewardship Financial Group" />
             <div style={{ width: 32 }} />
           </div>
           <div className="fast-content">

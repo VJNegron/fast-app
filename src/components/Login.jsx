@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { login } from "../lib/api";
+import logoStacked from "../assets/sfg-logo-stacked.png";
 
-// ── Wall Street brand tokens ──────────────────────────────────────────────────
-const DARK    = "#06101D";
-const NAVY    = "#0D1B2A";
-const GOLD    = "#C4992A";
-const STEEL   = "#5C6E7E";
+// ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
+const DARK    = "#1B1A33"; // deep shade of brand navy — page background
+const NAVY    = "#2B2A4F"; // SFG Navy (PANTONE 655C)
+const GOLD    = "#C6B159"; // SFG Gold (PANTONE 617C)
+const STEEL   = "#8A8BA8"; // muted periwinkle-slate, harmonized to brand navy
 const CREAM   = "#F5F1E8";
-const BORDER  = "#1E2E3E";
+const BORDER  = "#3A3960"; // lightened brand navy for hairlines
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -56,8 +57,8 @@ export default function Login({ onLogin }) {
           position: absolute;
           inset: 0;
           background-image:
-            linear-gradient(rgba(196,153,42,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(196,153,42,0.03) 1px, transparent 1px);
+            linear-gradient(rgba(198,177,89,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(198,177,89,0.03) 1px, transparent 1px);
           background-size: 40px 40px;
           pointer-events: none;
         }
@@ -67,6 +68,12 @@ export default function Login({ onLogin }) {
           margin-bottom: 48px;
           position: relative;
           z-index: 1;
+        }
+        .fast-login-logo {
+          width: 120px;
+          height: auto;
+          display: block;
+          margin: 0 auto 28px;
         }
         .fast-login-wordmark-text {
           font-family: 'Playfair Display', serif;
@@ -92,7 +99,7 @@ export default function Login({ onLogin }) {
         }
 
         .fast-login-card {
-          background: #0D1825;
+          background: ${NAVY};
           border: 1px solid ${BORDER};
           width: 100%;
           max-width: 360px;
@@ -147,7 +154,7 @@ export default function Login({ onLogin }) {
         }
         .fast-login-input {
           width: 100%;
-          background: #06101D;
+          background: ${DARK};
           border: 1px solid ${BORDER};
           padding: 11px 14px;
           font-size: 13px;
@@ -166,7 +173,7 @@ export default function Login({ onLogin }) {
           border-color: #8B3A3A;
         }
         .fast-login-input::placeholder {
-          color: #2A3D50;
+          color: #47466E;
         }
 
         .fast-login-error {
@@ -199,8 +206,8 @@ export default function Login({ onLogin }) {
           color: ${DARK};
         }
         .fast-login-btn:disabled {
-          border-color: #2A3D50;
-          color: #2A3D50;
+          border-color: #47466E;
+          color: #47466E;
           cursor: not-allowed;
         }
 
@@ -212,17 +219,18 @@ export default function Login({ onLogin }) {
         }
         .fast-login-footer-text {
           font-size: 10px;
-          color: #1E2E3E;
+          color: #3A3960;
           letter-spacing: 1px;
           text-transform: uppercase;
         }
         .fast-login-footer-accent {
-          color: rgba(196,153,42,0.4);
+          color: rgba(198,177,89,0.4);
         }
       `}</style>
 
       <div className="fast-login-root">
         <div className="fast-login-wordmark">
+          <img className="fast-login-logo" src={logoStacked} alt="Stewardship Financial Group" />
           <div className="fast-login-wordmark-text">F.A.S.T.</div>
           <div className="fast-login-wordmark-rule" />
           <div className="fast-login-wordmark-sub">Financial Advisory Stewardship Technology</div>

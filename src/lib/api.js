@@ -31,6 +31,21 @@ export function logout() {
   clearToken();
 }
 
+// ── Weekly rate sheet parsing ────────────────────────────────────────────────
+
+export async function parseRates(pdfBase64) {
+  const res = await fetch("/api/parse-rates", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ pdfBase64 }),
+  });
+
+  return handleResponse(res);
+}
+
 // ── Analysis ─────────────────────────────────────────────────────────────────
 
 export async function analyze({ pdfBase64, brain, notes, prefs = {} }) {

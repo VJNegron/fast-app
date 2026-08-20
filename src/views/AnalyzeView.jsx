@@ -2,11 +2,11 @@ import { useState, useRef } from "react";
 import { loadBrain } from "../lib/storage";
 import { analyze } from "../lib/api";
 
-// ── Wall Street brand tokens ──────────────────────────────────────────────────
-const DARK   = "#06101D";
-const NAVY   = "#0D1825";
-const GOLD   = "#C4992A";
-const STEEL  = "#5C6E7E";
+// ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
+const DARK   = "#1B1A33"; // deep shade of brand navy
+const NAVY   = "#2B2A4F"; // SFG Navy (PANTONE 655C)
+const GOLD   = "#C6B159"; // SFG Gold (PANTONE 617C)
+const STEEL  = "#5F6285"; // muted navy-slate, harmonized to brand navy
 const CREAM  = "#F5F1E8";
 const BORDER = "#DDD5C5";
 const TEXT   = "#1A2438";
@@ -170,7 +170,7 @@ export default function AnalyzeView({ onResult }) {
       {/* Brain warning */}
       {!brainComplete && (
         <div style={{
-          border: `1px solid rgba(196,153,42,0.3)`,
+          border: `1px solid rgba(198,177,89,0.3)`,
           borderLeft: `3px solid ${GOLD}`,
           padding: "16px 20px",
           marginBottom: 28,
@@ -179,7 +179,7 @@ export default function AnalyzeView({ onResult }) {
           lineHeight: 1.7,
           background: "#FEFBF3",
         }}>
-          <strong style={{ color: "#8B6914", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 6 }}>
+          <strong style={{ color: "#7A6C2E", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 6 }}>
             ⚑ Advisor Brain Required
           </strong>
           The Advisor Brain is empty. Set up your preferences and models first —
@@ -318,9 +318,9 @@ export default function AnalyzeView({ onResult }) {
                         padding: "8px 16px",
                         border: `1px solid ${selected ? GOLD : "#C8C0B4"}`,
                         background: isAnnuityYes
-                          ? "rgba(196,153,42,0.12)"
+                          ? "rgba(198,177,89,0.12)"
                           : selected
-                          ? "rgba(196,153,42,0.06)"
+                          ? "rgba(198,177,89,0.06)"
                           : "transparent",
                         color: selected ? GOLD : MUTED,
                         fontSize: 11,
@@ -342,10 +342,10 @@ export default function AnalyzeView({ onResult }) {
                 <div style={{
                   marginTop: 12,
                   padding: "10px 14px",
-                  background: "rgba(196,153,42,0.05)",
-                  border: `1px solid rgba(196,153,42,0.2)`,
+                  background: "rgba(198,177,89,0.05)",
+                  border: `1px solid rgba(198,177,89,0.2)`,
                   fontSize: 11,
-                  color: "#8B6914",
+                  color: "#7A6C2E",
                   lineHeight: 1.7,
                 }}>
                   <strong>Annuity layer activated.</strong> F.A.S.T. will evaluate NYL IndexFlex suitability
