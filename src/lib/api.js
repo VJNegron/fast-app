@@ -2,6 +2,7 @@
 // All calls to the F.A.S.T. backend — auth always includes the Bearer token.
 
 import { getToken, setToken, clearToken } from "./storage";
+import { getRateFreshness } from "./rates";
 
 function authHeaders() {
   const token = getToken();
@@ -97,6 +98,7 @@ export async function analyze({ pdfBase64, brain, notes, prefs = {} }) {
   // ── Build annuity rates block ──────────────────────────────────────────────
   const wantsGuarantees = prefs.wantsGuarantees === "yes";
   const annuityRates = brain.annuityRates;
+  const rateFreshness = getRateFreshness(annuityRates?.lastUpdated || "");
 
   let annuityContext = "";
   if (wantsGuarantees && annuityRates && annuityRates.strategies?.length) {
@@ -110,7 +112,7 @@ export async function analyze({ pdfBase64, brain, notes, prefs = {} }) {
 
     annuityContext = `
 ANNUITY STRATEGY — ${annuityRates.product || "NYL IndexFlex"} (rates as of ${annuityRates.lastUpdated || "current"}):
-${rateLines}
+${rateFreshness.stale ? `RATE WARNING: ${rateFreshness.message} Treat any annuity recommendation as conditional pending current NYL rate verification.\n` : ""}${rateLines}
 Suitability notes: ${annuityRates.suitabilityNotes || ""}
 Default allocation approach: ${annuityRates.defaultAllocation || ""}
 

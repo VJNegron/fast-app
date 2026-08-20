@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { loadBrain } from "../lib/storage";
 import { exportRecommendationPDF } from "../lib/pdfExport";
+import { getRateFreshness } from "../lib/rates";
 
 // ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
 const DARK   = "#1B1A33"; // deep shade of brand navy
@@ -58,6 +59,8 @@ export default function OutputView({ result, onNewAnalysis }) {
   const r = result;
   const annuity = r.annuityRecommendation;
   const hasAnnuity = annuity?.suitable === true;
+  const brain = loadBrain() || {};
+  const rateFreshness = getRateFreshness(brain.annuityRates?.lastUpdated || "");
 
   function handleCopy() {
     const lines = [
@@ -255,6 +258,23 @@ export default function OutputView({ result, onNewAnalysis }) {
       {/* ── ANNUITY LAYER ─────────────────────────────────────────────────── */}
       {hasAnnuity && (
         <>
+          {rateFreshness.stale && (
+            <div style={{
+              background: "#FFF8F0",
+              border: `1px solid rgba(198,177,89,0.35)`,
+              borderLeft: `3px solid ${GOLD}`,
+              padding: "14px 18px",
+              marginBottom: 20,
+              color: "#6F5F22",
+              fontSize: 12,
+              lineHeight: 1.7,
+            }}>
+              <strong style={{ display: "block", textTransform: "uppercase", letterSpacing: 1.5, fontSize: 9, marginBottom: 4 }}>
+                ⚠ Verify NYL Rates Before Client Use
+              </strong>
+              {rateFreshness.message}
+            </div>
+          )}
           <AnnuitySection annuity={annuity} />
           <hr style={S.rule} />
         </>

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { loadBrain } from "../lib/storage";
 import { analyze } from "../lib/api";
+import { getRateFreshness } from "../lib/rates";
 
 // ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
 const DARK   = "#1B1A33"; // deep shade of brand navy
@@ -91,6 +92,7 @@ export default function AnalyzeView({ onResult }) {
     brain.models?.some((m) => m.name?.trim().length > 0);
 
   const annuityGateActive = prefs.wantsGuarantees === "yes";
+  const rateFreshness = getRateFreshness(brain?.annuityRates?.lastUpdated || "");
 
   function setPref(key, val) {
     setPrefs((p) => ({ ...p, [key]: val }));
@@ -350,7 +352,16 @@ export default function AnalyzeView({ onResult }) {
                 }}>
                   <strong>Annuity layer activated.</strong> F.A.S.T. will evaluate NYL IndexFlex suitability
                   and return a strategy recommendation alongside the model match.
-                  {brain?.annuityRates ? ` Rates loaded (${brain.annuityRates.lastUpdated}).` : " Update NYL rates in The Advisor Brain first."}
+                  {brain?.annuityRates ? ` Rates loaded (${brain.annuityRates.lastUpdated || "no date"}).` : " Update NYL rates in The Advisor Brain first."}
+                  {rateFreshness.stale && (
+                    <div style={{
+                      marginTop: 8,
+                      color: "#8B3A3A",
+                      fontWeight: 600,
+                    }}>
+                      ⚠ {rateFreshness.message}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

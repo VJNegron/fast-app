@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { loadBrain, saveBrain, pushServerBrain } from "../lib/storage";
 import { parseRates } from "../lib/api";
+import { getRateFreshness, normalizeRateValue } from "../lib/rates";
 
 // ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
 const DARK   = "#1B1A33"; // deep shade of brand navy
@@ -89,12 +90,51 @@ const labelStyle = {
   marginBottom: 6,
 };
 
+function normStrategyName(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function buildRatePreview(parsed, fileName, existingRows = []) {
+  const incoming = parsed.strategies || [];
+  const matchedIncoming = new Set();
+  const rows = existingRows.map((row) => {
+    const a = normStrategyName(row.name);
+    const matchIndex = incoming.findIndex((inc) => {
+      const b = normStrategyName(inc.name);
+      return a && b && (a.includes(b) || b.includes(a));
+    });
+    const match = matchIndex >= 0 ? incoming[matchIndex] : null;
+    if (match) matchedIncoming.add(matchIndex);
+    return {
+      name: row.name,
+      previousStandard: row.standard || "",
+      previousEnhanced: row.enhanced || "",
+      standard: match ? normalizeRateValue(match.standard || row.standard) : row.standard || "",
+      enhanced: match ? normalizeRateValue(match.enhanced ?? row.enhanced) : row.enhanced || "",
+      matched: !!match,
+      sourceName: match?.name || "",
+    };
+  });
+
+  const unmatchedIncoming = incoming.filter((_inc, i) => !matchedIncoming.has(i));
+  return {
+    fileName,
+    product: parsed.product || "",
+    lastUpdated: parsed.lastUpdated || "",
+    rows,
+    matchedCount: rows.filter((r) => r.matched).length,
+    totalRows: rows.length,
+    unmatchedIncoming,
+  };
+}
+
 export default function BrainView() {
   const [brain, setBrain]         = useState(EMPTY_BRAIN);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [focusField, setFocusField] = useState(null);
-  const [rateUpload, setRateUpload] = useState("idle"); // idle | reading | done | error
+  const [rateUpload, setRateUpload] = useState("idle"); // idle | reading | preview | done | error
   const [rateMsg, setRateMsg]     = useState("");
+  const [ratePreview, setRatePreview] = useState(null);
   const rateFileRef               = useRef(null);
 
   useEffect(() => {
@@ -151,9 +191,10 @@ export default function BrainView() {
     setTimeout(() => setSaveState("idle"), 2000);
   }
 
-  // Weekly rate sheet: PDF → Claude extraction → merge into the rate table
+  // Weekly rate sheet: PDF → Claude extraction → review preview → confirmed save
   async function handleRatePdf(file) {
     if (!file) return;
+    setRatePreview(null);
     if (file.type !== "application/pdf") {
       setRateUpload("error");
       setRateMsg("Upload the NYL rate sheet as a PDF.");
@@ -170,37 +211,11 @@ export default function BrainView() {
       });
 
       const parsed = await parseRates(pdfBase64);
-
-      // Merge extracted rates onto existing rows by fuzzy name match so the
-      // table's structure and order stay intact
-      const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const incoming = parsed.strategies || [];
-      const strategies = (brain.annuityRates?.strategies || []).map((row) => {
-        const a = norm(row.name);
-        const match = incoming.find((inc) => {
-          const b = norm(inc.name);
-          return a && b && (a.includes(b) || b.includes(a));
-        });
-        return match
-          ? { ...row, standard: match.standard || row.standard, enhanced: match.enhanced ?? row.enhanced }
-          : row;
-      });
-
-      const updated = {
-        ...brain,
-        annuityRates: {
-          ...brain.annuityRates,
-          strategies,
-          lastUpdated: parsed.lastUpdated || brain.annuityRates?.lastUpdated || "",
-          product: parsed.product || brain.annuityRates?.product || "",
-        },
-      };
-      setBrain(updated);
-      saveBrain(updated);
-      await pushServerBrain(updated);
-      setRateUpload("done");
+      const preview = buildRatePreview(parsed, file.name, brain.annuityRates?.strategies || []);
+      setRatePreview(preview);
+      setRateUpload("preview");
       setRateMsg(
-        `✓ Rates updated from ${file.name}${parsed.lastUpdated ? ` — as of ${parsed.lastUpdated}` : ""}. Review the table below.`
+        `Review before saving: matched ${preview.matchedCount} of ${preview.totalRows} saved strategies${preview.lastUpdated ? ` — as of ${preview.lastUpdated}` : ""}.`
       );
     } catch (err) {
       setRateUpload("error");
@@ -208,8 +223,45 @@ export default function BrainView() {
     }
   }
 
+  async function handleApplyRatePreview() {
+    if (!ratePreview) return;
+    setRateUpload("reading");
+    setRateMsg("Saving reviewed rates…");
+    const updated = {
+      ...brain,
+      annuityRates: {
+        ...brain.annuityRates,
+        strategies: ratePreview.rows.map(({ name, standard, enhanced }) => ({ name, standard, enhanced })),
+        lastUpdated: ratePreview.lastUpdated || brain.annuityRates?.lastUpdated || "",
+        product: ratePreview.product || brain.annuityRates?.product || "",
+        sourceFile: ratePreview.fileName,
+        importedAt: new Date().toISOString(),
+      },
+    };
+    setBrain(updated);
+    saveBrain(updated);
+    const ok = await pushServerBrain(updated);
+    if (ok) {
+      setRateUpload("done");
+      setRatePreview(null);
+      setRateMsg(
+        `✓ Rates saved from ${ratePreview.fileName}${ratePreview.lastUpdated ? ` — as of ${ratePreview.lastUpdated}` : ""}.`
+      );
+    } else {
+      setRateUpload("error");
+      setRateMsg("Could not save rates to the server. The preview is still available — try Apply Rates again.");
+    }
+  }
+
+  function handleCancelRatePreview() {
+    setRatePreview(null);
+    setRateUpload("idle");
+    setRateMsg("Rate import cancelled. Current saved rates were not changed.");
+  }
+
   const brainComplete =
     brain.preferences.trim().length > 0 && brain.models.some((m) => m.name.trim().length > 0);
+  const rateFreshness = getRateFreshness(brain.annuityRates?.lastUpdated || "");
 
   const saveLabel =
     saveState === "saving"  ? "Saving…" :
@@ -307,6 +359,28 @@ export default function BrainView() {
           requests guarantees.
         </p>
 
+        {rateFreshness.stale && (
+          <RateWarning title={rateFreshness.label} message={rateFreshness.message} />
+        )}
+
+        {!rateFreshness.stale && (
+          <div style={{
+            border: `1px solid rgba(58,122,90,0.25)`,
+            borderLeft: `3px solid #3A7A5A`,
+            background: "#F4FBF7",
+            color: "#2F6F4F",
+            padding: "10px 14px",
+            marginBottom: 18,
+            fontSize: 11,
+            lineHeight: 1.7,
+          }}>
+            <strong style={{ textTransform: "uppercase", letterSpacing: 1.5, fontSize: 9 }}>
+              ✓ {rateFreshness.label}
+            </strong>{" "}
+            {rateFreshness.message}
+          </div>
+        )}
+
         {/* Weekly rate sheet upload */}
         <div style={{
           display: "flex",
@@ -343,6 +417,15 @@ export default function BrainView() {
             </span>
           )}
         </div>
+
+        {ratePreview && (
+          <RatePreviewCard
+            preview={ratePreview}
+            saving={rateUpload === "reading"}
+            onApply={handleApplyRatePreview}
+            onCancel={handleCancelRatePreview}
+          />
+        )}
 
         <div style={{
           border: `1px solid ${BORDER}`,
@@ -504,6 +587,114 @@ export default function BrainView() {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+function RateWarning({ title, message }) {
+  return (
+    <div style={{
+      border: `1px solid rgba(198,177,89,0.35)`,
+      borderLeft: `3px solid ${GOLD}`,
+      background: "#FFF9E8",
+      color: "#6F5F22",
+      padding: "12px 16px",
+      marginBottom: 18,
+      fontSize: 12,
+      lineHeight: 1.7,
+    }}>
+      <strong style={{ display: "block", textTransform: "uppercase", letterSpacing: 1.5, fontSize: 9, marginBottom: 4 }}>
+        ⚑ {title}
+      </strong>
+      {message}
+    </div>
+  );
+}
+
+function RatePreviewCard({ preview, saving, onApply, onCancel }) {
+  return (
+    <div style={{
+      border: `1px solid rgba(198,177,89,0.45)`,
+      borderLeft: `3px solid ${GOLD}`,
+      background: "#FEFBF3",
+      padding: "18px 20px",
+      marginBottom: 18,
+    }}>
+      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: 2, color: GOLD, fontWeight: 700, marginBottom: 8 }}>
+        Review Extracted Rates Before Saving
+      </div>
+      <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.7, marginBottom: 14 }}>
+        Source: <strong>{preview.fileName}</strong>
+        {preview.product ? ` · ${preview.product}` : ""}
+        {preview.lastUpdated ? ` · Effective ${preview.lastUpdated}` : ""}
+      </div>
+
+      <div style={{ border: `1px solid ${BORDER}`, background: "#FDFAF5", marginBottom: 14 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 120px 120px 70px",
+          background: DARK,
+          padding: "9px 14px",
+          gap: 10,
+          alignItems: "center",
+        }}>
+          {["Strategy", "Standard", "Enhanced", "Status"].map((h, i) => (
+            <div key={h} style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1.5, color: i === 2 ? GOLD : "#A8A9C4", fontWeight: 700 }}>
+              {h}
+            </div>
+          ))}
+        </div>
+        {preview.rows.map((row, i) => (
+          <div key={row.name} style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 120px 120px 70px",
+            padding: "10px 14px",
+            gap: 10,
+            alignItems: "center",
+            borderTop: i ? `1px solid ${BORDER}` : "none",
+          }}>
+            <div style={{ fontSize: 12, color: TEXT, fontWeight: 600 }}>{row.name}</div>
+            <RatePreviewValue previous={row.previousStandard} next={row.standard} />
+            <RatePreviewValue previous={row.previousEnhanced} next={row.enhanced} muted={!row.enhanced} />
+            <div style={{ fontSize: 9, color: row.matched ? "#3A7A5A" : "#8B3A3A", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+              {row.matched ? "Matched" : "Review"}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {preview.unmatchedIncoming.length > 0 && (
+        <div style={{ fontSize: 11, color: "#7A6C2E", lineHeight: 1.7, marginBottom: 14 }}>
+          <strong>Extra rows found:</strong>{" "}
+          {preview.unmatchedIncoming.map((r) => r.name).join(", ")}. These were not saved because they do not match the current table.
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        <ActionBtn primary onClick={onApply} disabled={saving}>
+          {saving ? "Saving…" : "Apply Rates"}
+        </ActionBtn>
+        <ActionBtn onClick={onCancel} disabled={saving}>
+          Cancel Import
+        </ActionBtn>
+        <span style={{ fontSize: 10, color: MUTED, lineHeight: 1.5 }}>
+          Nothing changes until you click Apply Rates.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function RatePreviewValue({ previous, next, muted }) {
+  const changed = (previous || "") !== (next || "");
+  return (
+    <div style={{ fontSize: 12, color: muted ? MUTED : TEXT, lineHeight: 1.4 }}>
+      <div style={{ fontWeight: 700 }}>{next || "—"}</div>
+      {changed && (
+        <div style={{ fontSize: 9, color: MUTED }}>
+          was {previous || "—"}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ModelCard({ m, i, onUpdate }) {
   const [expanded, setExpanded] = useState(true);

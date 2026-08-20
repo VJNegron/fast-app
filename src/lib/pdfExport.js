@@ -4,6 +4,7 @@
 
 import jsPDF from "jspdf";
 import logoStacked from "../assets/sfg-logo-stacked.png?inline";
+import { getRateFreshness } from "./rates";
 
 // Brand colors as RGB arrays for jsPDF (Stewardship Financial Group style guide)
 const C = {
@@ -112,6 +113,23 @@ export function exportRecommendationPDF(result, brain) {
   setTxt(doc, C.accent);
   doc.text(`Confidence: ${result.confidence || "—"}`, MARGIN, y);
   y += 10;
+
+  const rateFreshness = getRateFreshness(brain.annuityRates?.lastUpdated || "");
+  if (result.annuityRecommendation?.suitable === true && rateFreshness.stale) {
+    setFill(doc, C.cream);
+    setDraw(doc, C.gold);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(MARGIN, y - 4, CONTENT_W, 18, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    setTxt(doc, C.accent);
+    doc.text("VERIFY NYL RATES BEFORE CLIENT USE", MARGIN + 4, y + 1);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    setTxt(doc, C.text);
+    y = drawWrapped(doc, rateFreshness.message, MARGIN + 4, y + 6, CONTENT_W - 8, 4.3);
+    y += 10;
+  }
 
   setDraw(doc, C.gold);
   doc.setLineWidth(0.5);
