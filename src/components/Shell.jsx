@@ -2,6 +2,7 @@ import { useState } from "react";
 import BrainView from "../views/BrainView";
 import AnalyzeView from "../views/AnalyzeView";
 import OutputView from "../views/OutputView";
+import HistoryView from "../views/HistoryView";
 import logoHorizontal from "../assets/sfg-logo-horizontal.png";
 
 // ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
@@ -15,6 +16,7 @@ const BORDER = "#3A3960"; // lightened brand navy for hairlines
 const NAV_ITEMS = [
   { id: "analyze", label: "New Client Analysis", sub: "Upload PDF · Generate recommendation" },
   { id: "output",  label: "Recommendation",      sub: "Latest analysis result" },
+  { id: "history", label: "Client History",      sub: "Saved recommendations" },
   { id: "brain",   label: "The Advisor Brain",   sub: "Preferences · Models A–E" },
 ];
 
@@ -38,6 +40,7 @@ export default function Shell({ onLogout }) {
   function navigate(id) { setView(id); setNavOpen(false); }
   function handleResult(r) { setResult(r); setView("output"); }
   function handleNewAnalysis() { setResult(null); setView("analyze"); }
+  function handleOpenAnalysis(r) { setResult(r); setView("output"); }
 
   return (
     <>
@@ -286,6 +289,7 @@ export default function Shell({ onLogout }) {
             {view === "brain"   && <BrainView />}
             {view === "analyze" && <AnalyzeView onResult={handleResult} />}
             {view === "output"  && <OutputView result={result} onNewAnalysis={handleNewAnalysis} />}
+            {view === "history" && <HistoryView onOpenAnalysis={handleOpenAnalysis} onNewAnalysis={handleNewAnalysis} />}
           </div>
         </div>
       </div>

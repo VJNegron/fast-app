@@ -49,7 +49,10 @@ export async function parseRates(pdfBase64) {
 
 // ── Analysis ─────────────────────────────────────────────────────────────────
 
-export async function analyze({ pdfBase64, brain, notes, prefs = {} }) {
+export async function analyze({ pdfBase64, pdfs, brain, notes, prefs = {} }) {
+  const documents = Array.isArray(pdfs) && pdfs.length
+    ? pdfs.map((doc, i) => `${i + 1}. ${doc.name || "Uploaded PDF"}`).join("\n")
+    : "1. Client document";
   const modelsText = brain.models
     .filter((m) => m.name.trim())
     .map(
@@ -132,9 +135,11 @@ ${modelsText}
 
 ${prefsText ? `CLIENT INVESTMENT STYLE PREFERENCES (from advisor intake):\n${prefsText}\n\nApply these preferences when selecting the model and making adjustments. A passive, fee-sensitive client with steady preference should lean toward lower-cost index funds within the recommended model.` : ""}
 ${annuityContext}
+UPLOADED DOCUMENTS:
+${documents}
 ${notes.trim() ? "\nADVISOR'S NOTES ON THIS CLIENT:\n" + notes.trim() : ""}
 
-TASK: Read the attached client financial document. Extract the client's situation, then recommend which ONE model portfolio (by letter) best fits, applying the advisor's preferences strictly.
+TASK: Read the attached client financial document(s). If multiple PDFs are provided, reconcile them together and use the full client picture. Extract the client's situation, then recommend which ONE model portfolio (by letter) best fits, applying the advisor's preferences strictly.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this structure:
 {
@@ -168,8 +173,23 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this s
       "Content-Type": "application/json",
       ...authHeaders(),
     },
-    body: JSON.stringify({ pdfBase64, prompt }),
+    body: JSON.stringify({ pdfBase64, pdfs, prompt }),
   });
 
+  return handleResponse(res);
+}
+
+
+// ── Follow-up chat ────────────────────────────────────────────────────────────
+
+export async function askFast({ question, result, brain }) {
+  const res = await fetch("/api/ask", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ question, result, brain }),
+  });
   return handleResponse(res);
 }

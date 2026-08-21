@@ -267,3 +267,101 @@ export function exportRecommendationPDF(result, brain) {
   const dateStr = new Date().toISOString().split("T")[0];
   doc.save(`FAST-${clientName}-${dateStr}.pdf`);
 }
+
+
+export function exportClientRecommendationPDF(result, brain) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+  setFill(doc, C.navy);
+  doc.rect(0, 0, PAGE_W, 42, "F");
+  try {
+    doc.addImage(logoStacked, "PNG", MARGIN, 9, 24, 24);
+  } catch (e) {
+    console.warn("Logo embed failed, continuing without it:", e);
+  }
+  doc.setFont("times", "bold");
+  doc.setFontSize(22);
+  setTxt(doc, C.gold);
+  doc.text("Portfolio Recommendation", MARGIN + 30, 17);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  setTxt(doc, C.muted);
+  doc.text(brain.firm || "Stewardship Financial Group", MARGIN + 30, 25);
+  doc.text(`Prepared ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, MARGIN + 30, 32);
+
+  let y = 56;
+  const snap = result.clientSnapshot || {};
+  doc.setFont("times", "bold");
+  doc.setFontSize(18);
+  setTxt(doc, C.navy);
+  doc.text(snap.name && snap.name !== "Not stated" ? snap.name : "Client Recommendation", MARGIN, y);
+  y += 10;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  setTxt(doc, C.text);
+  y = drawWrapped(doc, `Based on the information reviewed, the recommended portfolio direction is Model ${result.modelMatch || "—"}${result.modelName ? ` — ${result.modelName}` : ""}.`, MARGIN, y, CONTENT_W, 5.5);
+  y += 8;
+
+  y = sectionHeading(doc, "Recommended Direction", y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  setTxt(doc, C.text);
+  y = drawWrapped(doc, result.rationale || "", MARGIN, y, CONTENT_W, 5.5);
+  y += 8;
+
+  if (result.talkingPoints?.length) {
+    y = guardPage(doc, y, 24);
+    y = sectionHeading(doc, "Key Discussion Points", y);
+    result.talkingPoints.slice(0, 4).forEach((pt) => {
+      y = guardPage(doc, y, 12);
+      setTxt(doc, C.gold);
+      doc.text("•", MARGIN, y);
+      setTxt(doc, C.text);
+      y = drawWrapped(doc, pt, MARGIN + 6, y, CONTENT_W - 8, 5.3);
+      y += 2;
+    });
+    y += 6;
+  }
+
+  const annuity = result.annuityRecommendation;
+  if (annuity?.suitable === true) {
+    y = guardPage(doc, y, 35);
+    y = sectionHeading(doc, "Protection / Annuity Layer", y);
+    setTxt(doc, C.text);
+    doc.setFont("helvetica", "normal");
+    y = drawWrapped(doc, `${annuity.product || "NYL IndexFlex"}: ${annuity.rationale || "A protection-oriented layer may be appropriate for part of the portfolio."}`, MARGIN, y, CONTENT_W, 5.3);
+    if (annuity.suggestedAllocation) {
+      y += 3;
+      doc.setFont("helvetica", "bold");
+      y = drawWrapped(doc, `Suggested allocation: ${annuity.suggestedAllocation}`, MARGIN, y, CONTENT_W, 5.3);
+      doc.setFont("helvetica", "normal");
+    }
+    y += 7;
+  }
+
+  y = guardPage(doc, y, 32);
+  setFill(doc, C.gray);
+  setDraw(doc, C.muted);
+  doc.roundedRect(MARGIN, y, CONTENT_W, 26, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  setTxt(doc, C.accent);
+  doc.text("IMPORTANT", MARGIN + 4, y + 7);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  setTxt(doc, C.text);
+  drawWrapped(doc, "This is a client-facing discussion summary, not a final prospectus, policy illustration, or compliance-approved investment recommendation. Final recommendations require advisor review, suitability confirmation, and current product/rate verification.", MARGIN + 4, y + 13, CONTENT_W - 8, 4.2);
+
+  setFill(doc, C.navy);
+  doc.rect(0, PAGE_H - 16, PAGE_W, 16, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  setTxt(doc, C.muted);
+  doc.text(`${brain.advisorName || "Advisor"}${brain.firm ? " · " + brain.firm : ""}`, PAGE_W / 2, PAGE_H - 9, { align: "center" });
+  setTxt(doc, C.gold);
+  doc.text("Prepared with F.A.S.T.", PAGE_W / 2, PAGE_H - 4, { align: "center" });
+
+  const clientName = result.clientSnapshot?.name?.replace(/[^a-zA-Z0-9]/g, "-") || "Client";
+  const dateStr = new Date().toISOString().split("T")[0];
+  doc.save(`FAST-Client-Summary-${clientName}-${dateStr}.pdf`);
+}

@@ -88,16 +88,21 @@ app.post("/api/auth/login", loginLimiter, (req, res) => {
 
 // Analyze — the core engine
 app.post("/api/analyze", requireAuth, async (req, res) => {
-  const { pdfBase64, prompt } = req.body || {};
+  const { pdfBase64, pdfs, prompt } = req.body || {};
+  const documents = Array.isArray(pdfs) && pdfs.length
+    ? pdfs
+    : pdfBase64
+    ? [{ name: "Client document", pdfBase64 }]
+    : [];
 
-  if (!pdfBase64 || !prompt) {
+  if (!documents.length || !prompt) {
     return res.status(400).json({ error: "Missing PDF or prompt." });
   }
 
-  const estimatedBytes = Math.floor((pdfBase64.length * 3) / 4);
-  if (estimatedBytes > MAX_PDF_BYTES) {
+  const totalBytes = documents.reduce((sum, doc) => sum + Math.floor(((doc.pdfBase64 || "").length * 3) / 4), 0);
+  if (totalBytes > MAX_PDF_BYTES) {
     return res.status(400).json({
-      error: `This PDF is too large (${(estimatedBytes / 1024 / 1024).toFixed(1)} MB). Max is 25 MB. Try a shorter statement or split the document.`,
+      error: `These PDFs total ${(totalBytes / 1024 / 1024).toFixed(1)} MB — over the 25 MB limit. Try fewer/smaller documents.`,
     });
   }
 
@@ -109,14 +114,17 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
         {
           role: "user",
           content: [
-            {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
-                data: pdfBase64,
+            ...documents.flatMap((doc, i) => [
+              { type: "text", text: `Document ${i + 1}: ${doc.name || "Uploaded PDF"}` },
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: doc.pdfBase64,
+                },
               },
-            },
+            ]),
             { type: "text", text: prompt },
           ],
         },
@@ -181,6 +189,43 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
     res.status(500).json({
       error: `Analysis failed (${status || "unknown error"}). Check Railway logs for details.`,
     });
+  }
+});
+
+// Follow-up chat — asks questions about an existing recommendation without new PDFs
+app.post("/api/ask", requireAuth, async (req, res) => {
+  const { question, result, brain } = req.body || {};
+  if (!question?.trim() || !result) {
+    return res.status(400).json({ error: "Missing question or recommendation context." });
+  }
+
+  const prompt = `You are F.A.S.T., a concise follow-up assistant for ${brain?.advisorName || "the advisor"}${brain?.firm ? " of " + brain.firm : ""}.
+Answer the advisor's question using ONLY this recommendation context and the stored Advisor Brain preferences. Be practical, plain-English, and meeting-ready. If the answer depends on current rates, compliance, suitability, or missing client facts, say so.
+
+ADVISOR BRAIN SUMMARY:
+${brain?.preferences || "No preferences provided."}
+
+CURRENT RECOMMENDATION JSON:
+${JSON.stringify(result, null, 2)}
+
+ADVISOR QUESTION:
+${question.trim()}`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 900,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const answer = (message.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    res.json({ answer });
+  } catch (err) {
+    console.error("Anthropic API error (ask):", err?.status, err?.message);
+    res.status(500).json({ error: "Follow-up failed. Try again in a moment." });
   }
 });
 

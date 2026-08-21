@@ -3,7 +3,10 @@
 // browsers/devices); localStorage is the fast local cache + offline fallback.
 
 const BRAIN_KEY = "fast-advisor-brain-v1";
+const BRAIN_HISTORY_KEY = "fast-advisor-brain-history-v1";
+const ANALYSIS_HISTORY_KEY = "fast-analysis-history-v1";
 const AUTH_KEY = "fast-auth-token";
+const MAX_HISTORY_ITEMS = 25;
 
 // ── Brain persistence ────────────────────────────────────────────────────────
 
@@ -23,6 +26,68 @@ export function saveBrain(brain) {
   } catch {
     return false;
   }
+}
+
+function loadList(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveList(key, items) {
+  try {
+    localStorage.setItem(key, JSON.stringify(items.slice(0, MAX_HISTORY_ITEMS)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadBrainHistory() {
+  return loadList(BRAIN_HISTORY_KEY);
+}
+
+export function snapshotBrain(brain, reason = "Manual save") {
+  if (!brain) return false;
+  const versions = loadBrainHistory();
+  const item = {
+    id: `brain-${Date.now()}`,
+    savedAt: new Date().toISOString(),
+    reason,
+    advisorName: brain.advisorName || "Advisor",
+    firm: brain.firm || "",
+    modelCount: (brain.models || []).filter((m) => m.name?.trim()).length,
+    rateDate: brain.annuityRates?.lastUpdated || "",
+    brain,
+  };
+  return saveList(BRAIN_HISTORY_KEY, [item, ...versions]);
+}
+
+export function loadAnalysisHistory() {
+  return loadList(ANALYSIS_HISTORY_KEY);
+}
+
+export function saveAnalysisResult(result, meta = {}) {
+  if (!result) return false;
+  const existing = loadAnalysisHistory();
+  const item = {
+    id: `analysis-${Date.now()}`,
+    savedAt: new Date().toISOString(),
+    clientName: result.clientSnapshot?.name || "Unknown client",
+    modelMatch: result.modelMatch || "—",
+    modelName: result.modelName || "",
+    confidence: result.confidence || "",
+    hasAnnuity: result.annuityRecommendation?.suitable === true,
+    documentNames: meta.documentNames || [],
+    notes: meta.notes || "",
+    result,
+  };
+  saveList(ANALYSIS_HISTORY_KEY, [item, ...existing]);
+  return item;
 }
 
 // Pull the brain from the server into the local cache. Returns it, or null.

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { loadBrain } from "../lib/storage";
-import { exportRecommendationPDF } from "../lib/pdfExport";
+import { exportRecommendationPDF, exportClientRecommendationPDF } from "../lib/pdfExport";
 import { getRateFreshness } from "../lib/rates";
+import { askFast } from "../lib/api";
 
 // ── Stewardship Financial Group brand tokens (per SFG Style Guide) ────────────
 const DARK   = "#1B1A33"; // deep shade of brand navy
@@ -42,6 +43,9 @@ const S = {
 export default function OutputView({ result, onNewAnalysis }) {
   const [copied, setCopied]             = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [question, setQuestion]         = useState("");
+  const [chat, setChat]                 = useState([]);
+  const [asking, setAsking]             = useState(false);
 
   if (!result) {
     return (
@@ -126,6 +130,35 @@ export default function OutputView({ result, onNewAnalysis }) {
       console.error("PDF export error:", e);
     } finally {
       setExportingPdf(false);
+    }
+  }
+
+  function handleExportClientPdf() {
+    setExportingPdf(true);
+    try {
+      const brain = loadBrain() || { advisorName: "", firm: "" };
+      exportClientRecommendationPDF(r, brain);
+    } catch (e) {
+      console.error("Client PDF export error:", e);
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
+  async function handleAskFast() {
+    const q = question.trim();
+    if (!q || asking) return;
+    const brain = loadBrain() || {};
+    setQuestion("");
+    setChat((items) => [...items, { role: "advisor", text: q }]);
+    setAsking(true);
+    try {
+      const { answer } = await askFast({ question: q, result: r, brain });
+      setChat((items) => [...items, { role: "fast", text: answer || "I could not generate an answer." }]);
+    } catch (e) {
+      setChat((items) => [...items, { role: "fast", text: e.message || "Follow-up failed. Try again." }]);
+    } finally {
+      setAsking(false);
     }
   }
 
@@ -357,13 +390,84 @@ export default function OutputView({ result, onNewAnalysis }) {
         </>
       )}
 
+      {/* ── ASK F.A.S.T. ───────────────────────────────────────────────────── */}
+      <Section title="Ask F.A.S.T. Follow-Up">
+        <div style={{ border: `1px solid ${BORDER}`, background: "#FAF8F4", padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.7, marginBottom: 12 }}>
+            Ask a follow-up about this recommendation — examples: “What would you say to the client?”, “Why Model C over B?”, or “What if they want more guarantees?”
+          </div>
+          {chat.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              {chat.map((msg, i) => (
+                <div key={i} style={{
+                  alignSelf: msg.role === "advisor" ? "flex-end" : "stretch",
+                  maxWidth: msg.role === "advisor" ? "80%" : "100%",
+                  background: msg.role === "advisor" ? DARK : "#FDFAF5",
+                  color: msg.role === "advisor" ? "#E8E2D9" : TEXT,
+                  border: msg.role === "advisor" ? `1px solid #3A3960` : `1px solid ${BORDER}`,
+                  borderLeft: msg.role === "fast" ? `3px solid ${GOLD}` : undefined,
+                  padding: "10px 12px",
+                  fontSize: 12,
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAskFast(); }}
+              placeholder="Ask a follow-up about this recommendation…"
+              style={{
+                flex: 1,
+                background: "#FDFAF5",
+                border: `1px solid ${BORDER}`,
+                padding: "10px 12px",
+                fontSize: 12,
+                color: TEXT,
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+            <button
+              onClick={handleAskFast}
+              disabled={asking || !question.trim()}
+              style={{
+                border: `1px solid ${GOLD}`,
+                background: "transparent",
+                color: GOLD,
+                padding: "10px 14px",
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+                cursor: asking ? "wait" : "pointer",
+                opacity: asking || !question.trim() ? 0.55 : 1,
+                fontFamily: "inherit",
+              }}
+            >
+              {asking ? "Asking…" : "Ask"}
+            </button>
+          </div>
+        </div>
+      </Section>
+
+      <hr style={S.rule} />
+
       {/* ── ACTIONS ───────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
         <ActionBtn onClick={handleCopy} primary>
           {copied ? "✓ Copied" : "Copy to Clipboard"}
         </ActionBtn>
         <ActionBtn onClick={handleExportPdf} disabled={exportingPdf}>
-          {exportingPdf ? "Generating…" : "Export PDF"}
+          {exportingPdf ? "Generating…" : "Export Advisor PDF"}
+        </ActionBtn>
+        <ActionBtn onClick={handleExportClientPdf} disabled={exportingPdf}>
+          {exportingPdf ? "Generating…" : "Export Client PDF"}
         </ActionBtn>
         <ActionBtn onClick={onNewAnalysis}>
           New Analysis

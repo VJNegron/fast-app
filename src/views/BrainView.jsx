@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { loadBrain, saveBrain, pushServerBrain } from "../lib/storage";
+import { loadBrain, saveBrain, pushServerBrain, loadBrainHistory, snapshotBrain } from "../lib/storage";
 import { parseRates } from "../lib/api";
 import { getRateFreshness, normalizeRateValue } from "../lib/rates";
 
@@ -135,10 +135,13 @@ export default function BrainView() {
   const [rateUpload, setRateUpload] = useState("idle"); // idle | reading | preview | done | error
   const [rateMsg, setRateMsg]     = useState("");
   const [ratePreview, setRatePreview] = useState(null);
+  const [versions, setVersions]   = useState([]);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const rateFileRef               = useRef(null);
 
   useEffect(() => {
     const stored = loadBrain();
+    setVersions(loadBrainHistory());
     if (stored) {
       // Backwards-compat: add annuityRates if stored brain predates v2
       if (!stored.annuityRates) {
@@ -172,9 +175,12 @@ export default function BrainView() {
 
   async function handleSave() {
     setSaveState("saving");
+    snapshotBrain(brain, "Manual save");
+    setVersions(loadBrainHistory());
     saveBrain(brain); // local cache first
     const ok = await pushServerBrain(brain); // server = source of truth
     if (ok) {
+      setLastSavedAt(new Date().toISOString());
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
     } else {
@@ -184,11 +190,28 @@ export default function BrainView() {
   }
 
   async function handleLoadSample() {
+    if (!window.confirm("This will replace the current Advisor Brain with demo/sample values. Continue?")) return;
+    snapshotBrain(brain, "Before demo reset");
     setBrain(SAMPLE_BRAIN);
     saveBrain(SAMPLE_BRAIN);
     await pushServerBrain(SAMPLE_BRAIN);
+    setVersions(loadBrainHistory());
+    setLastSavedAt(new Date().toISOString());
     setSaveState("saved");
     setTimeout(() => setSaveState("idle"), 2000);
+  }
+
+  async function handleRestoreVersion(version) {
+    if (!version?.brain) return;
+    if (!window.confirm(`Restore Advisor Brain from ${new Date(version.savedAt).toLocaleString()}? Current unsaved edits will be replaced.`)) return;
+    snapshotBrain(brain, "Before version restore");
+    setBrain(version.brain);
+    saveBrain(version.brain);
+    const ok = await pushServerBrain(version.brain);
+    setVersions(loadBrainHistory());
+    setLastSavedAt(new Date().toISOString());
+    setSaveState(ok ? "saved" : "error");
+    setTimeout(() => setSaveState("idle"), ok ? 2000 : 3000);
   }
 
   // Weekly rate sheet: PDF → Claude extraction → review preview → confirmed save
@@ -238,8 +261,10 @@ export default function BrainView() {
         importedAt: new Date().toISOString(),
       },
     };
+    snapshotBrain(brain, "Before rate import");
     setBrain(updated);
     saveBrain(updated);
+    setVersions(loadBrainHistory());
     const ok = await pushServerBrain(updated);
     if (ok) {
       setRateUpload("done");
@@ -581,12 +606,91 @@ export default function BrainView() {
             ● Engine active
           </span>
         )}
+
+        {lastSavedAt && (
+          <span style={{ fontSize: 10, color: MUTED, letterSpacing: 0.8 }}>
+            Last saved {new Date(lastSavedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+          </span>
+        )}
       </div>
+
+      <VersionHistory versions={versions} onRestore={handleRestoreVersion} />
     </div>
   );
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+function VersionHistory({ versions, onRestore }) {
+  const recent = (versions || []).slice(0, 5);
+  if (!recent.length) {
+    return (
+      <div style={{
+        marginTop: 24,
+        border: `1px solid ${BORDER}`,
+        background: "#FAF8F4",
+        padding: "16px 18px",
+        fontSize: 12,
+        color: MUTED,
+        lineHeight: 1.7,
+      }}>
+        <strong style={{ display: "block", color: STEEL, fontSize: 9, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>
+          Brain Version History
+        </strong>
+        Save the Advisor Brain once and F.A.S.T. will keep restore points here.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 24, border: `1px solid ${BORDER}`, background: "#FAF8F4", padding: "16px 18px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+        <div style={{ color: STEEL, fontSize: 9, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700 }}>
+          Brain Version History
+        </div>
+        <div style={{ color: MUTED, fontSize: 10 }}>Latest 5 restore points</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {recent.map((v) => (
+          <div key={v.id} style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "center",
+            borderTop: `1px solid ${BORDER}`,
+            paddingTop: 8,
+          }}>
+            <div>
+              <div style={{ fontSize: 12, color: TEXT, fontWeight: 600 }}>
+                {new Date(v.savedAt).toLocaleString()} · {v.reason}
+              </div>
+              <div style={{ fontSize: 10, color: MUTED, marginTop: 3 }}>
+                {v.advisorName}{v.firm ? ` · ${v.firm}` : ""} · {v.modelCount} models{v.rateDate ? ` · rates ${v.rateDate}` : ""}
+              </div>
+            </div>
+            <button
+              onClick={() => onRestore(v)}
+              style={{
+                border: `1px solid ${GOLD}`,
+                background: "transparent",
+                color: GOLD,
+                padding: "6px 10px",
+                fontSize: 9,
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                flexShrink: 0,
+              }}
+            >
+              Restore
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function RateWarning({ title, message }) {
   return (

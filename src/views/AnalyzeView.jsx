@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { loadBrain } from "../lib/storage";
+import { loadBrain, saveAnalysisResult } from "../lib/storage";
 import { analyze } from "../lib/api";
 import { getRateFreshness } from "../lib/rates";
 
@@ -68,8 +68,8 @@ const PREF_QUESTIONS = [
 ];
 
 export default function AnalyzeView({ onResult }) {
-  const [pdfFile, setPdfFile]     = useState(null);
-  const [pdfBase64, setPdfBase64] = useState(null);
+  const [pdfFiles, setPdfFiles]   = useState([]);
+  const [pdfs, setPdfs]           = useState([]);
   const [notes, setNotes]         = useState("");
   const [prefs, setPrefs]         = useState({
     managementStyle:  null,
@@ -98,33 +98,42 @@ export default function AnalyzeView({ onResult }) {
     setPrefs((p) => ({ ...p, [key]: val }));
   }
 
-  function handleFile(file) {
-    if (!file) return;
+  function handleFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
     setError(null);
 
-    if (file.type !== "application/pdf") {
-      setError("Upload a PDF — statements, account summaries, or planning documents.");
+    const nonPdf = files.find((file) => file.type !== "application/pdf");
+    if (nonPdf) {
+      setError("Upload PDF files only — statements, account summaries, planning documents, or risk profiles.");
       return;
     }
 
-    const sizeMB = file.size / 1024 / 1024;
-    if (sizeMB > MAX_PDF_DISPLAY_MB) {
+    const totalMB = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
+    if (totalMB > MAX_PDF_DISPLAY_MB) {
       setError(
-        `This PDF is ${sizeMB.toFixed(1)} MB — over the 25 MB limit. Try a shorter statement or split the document.`
+        `These PDFs total ${totalMB.toFixed(1)} MB — over the 25 MB limit. Try fewer documents or smaller PDFs.`
       );
       return;
     }
 
-    setPdfFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setPdfBase64(reader.result.split(",")[1]);
-    reader.onerror = () =>
-      setError("Could not read that file. Make sure it's a valid, non-encrypted PDF.");
-    reader.readAsDataURL(file);
+    setPdfFiles(files);
+    Promise.all(
+      files.map((file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ name: file.name, pdfBase64: reader.result.split(",")[1] });
+          reader.onerror = () => reject(new Error("Could not read one of those files. Make sure all PDFs are valid and non-encrypted."));
+          reader.readAsDataURL(file);
+        })
+      )
+    )
+      .then(setPdfs)
+      .catch((err) => setError(err.message));
   }
 
   async function handleGenerate() {
-    if (!pdfBase64) {
+    if (!pdfs.length) {
       setError("Upload the client's PDF first.");
       return;
     }
@@ -137,10 +146,14 @@ export default function AnalyzeView({ onResult }) {
     setError(null);
 
     try {
-      const result = await analyze({ pdfBase64, brain, notes, prefs });
-      onResult(result);
-      setPdfFile(null);
-      setPdfBase64(null);
+      const result = await analyze({ pdfs, brain, notes, prefs });
+      const saved = saveAnalysisResult(result, {
+        documentNames: pdfFiles.map((f) => f.name),
+        notes,
+      });
+      onResult({ ...result, historyId: saved?.id, documentNames: pdfFiles.map((f) => f.name) });
+      setPdfFiles([]);
+      setPdfs([]);
       setNotes("");
       setPrefs({
         managementStyle: null, strategyApproach: null, involvementLevel: null,
@@ -165,7 +178,7 @@ export default function AnalyzeView({ onResult }) {
       <PageHeader title="New Client Analysis" />
 
       <p style={{ fontSize: 13, color: MUTED, marginBottom: 32, lineHeight: 1.8, maxWidth: 580 }}>
-        Upload the client's statement or financial document. F.A.S.T. reads it, matches it against
+        Upload the client's statement, risk profile, and supporting PDFs. F.A.S.T. reads them together, matches them against
         your models, and returns your recommendation.
       </p>
 
@@ -198,11 +211,11 @@ export default function AnalyzeView({ onResult }) {
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          handleFile(e.dataTransfer.files[0]);
+          handleFiles(e.dataTransfer.files);
         }}
         style={{
-          border: `1px dashed ${pdfFile ? GOLD : dragOver ? GOLD : "#C0B8AC"}`,
-          background: dragOver ? "#FEFBF3" : pdfFile ? "#FDFAF5" : "#FAF8F4",
+          border: `1px dashed ${pdfFiles.length ? GOLD : dragOver ? GOLD : "#C0B8AC"}`,
+          background: dragOver ? "#FEFBF3" : pdfFiles.length ? "#FDFAF5" : "#FAF8F4",
           padding: "48px 24px",
           textAlign: "center",
           cursor: analyzing ? "wait" : "pointer",
@@ -215,11 +228,12 @@ export default function AnalyzeView({ onResult }) {
           ref={fileRef}
           type="file"
           accept="application/pdf"
+          multiple
           style={{ display: "none" }}
-          onChange={(e) => handleFile(e.target.files[0])}
+          onChange={(e) => handleFiles(e.target.files)}
         />
 
-        {pdfFile ? (
+        {pdfFiles.length ? (
           <div>
             <div style={{
               width: 44, height: 44,
@@ -229,11 +243,16 @@ export default function AnalyzeView({ onResult }) {
               color: GOLD, fontSize: 18,
             }}>⬜</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, color: TEXT, marginBottom: 4 }}>
-              {pdfFile.name}
+              {pdfFiles.length === 1 ? pdfFiles[0].name : `${pdfFiles.length} client documents selected`}
             </div>
             <div style={{ fontSize: 11, color: MUTED, letterSpacing: 0.5 }}>
-              {(pdfFile.size / 1024).toFixed(0)} KB · click to replace
+              {(pdfFiles.reduce((sum, file) => sum + file.size, 0) / 1024).toFixed(0)} KB total · click to replace
             </div>
+            {pdfFiles.length > 1 && (
+              <div style={{ marginTop: 10, fontSize: 10, color: MUTED, lineHeight: 1.7 }}>
+                {pdfFiles.map((file) => file.name).join(" · ")}
+              </div>
+            )}
           </div>
         ) : (
           <div>
@@ -245,11 +264,11 @@ export default function AnalyzeView({ onResult }) {
               color: STEEL, fontSize: 20,
             }}>↑</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600, color: TEXT, marginBottom: 6, letterSpacing: 0.3 }}>
-              Drop the client's PDF here
+              Drop the client's PDFs here
             </div>
             <div style={{ fontSize: 11, color: MUTED, letterSpacing: 0.5, lineHeight: 1.8 }}>
-              Statements · account summaries · planning documents<br />
-              Max 25 MB · PDF only
+              Statements · account summaries · risk profiles · planning documents<br />
+              Max 25 MB combined · PDF only
             </div>
           </div>
         )}
